@@ -164,13 +164,6 @@ async def process_web_urls(urls: List[str]) -> List[Document]:
     return web_docs
 
 def main():
-    # --- Streamlit Page Configuration ---
-    st.set_page_config(
-        page_title="PDF Auto-Extraction with Groq",
-        page_icon="📄",
-        layout="wide"
-    )
-
     # --- Application State ---
     if 'retriever' not in st.session_state:
         st.session_state.retriever = None

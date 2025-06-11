@@ -12,14 +12,6 @@ from sentence_transformers import SentenceTransformer
 from groq import Groq
 
 def main():
-    # Initialize Streamlit
-    st.set_page_config(
-        page_title="LEOparts Chatbot",
-        page_icon="🤖",
-        layout="wide",
-        initial_sidebar_state="expanded"
-    )
-
     # --- Configuration ---
     try:
         SUPABASE_URL = st.secrets["SUPABASE_URL"]

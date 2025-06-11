@@ -1,4 +1,12 @@
 import streamlit as st
+
+# Set page config must be the first Streamlit command
+st.set_page_config(
+    page_title="LEOPARTS",
+    page_icon="🦁",
+    layout="wide"
+)
+
 import sys
 import os
 
@@ -11,13 +19,6 @@ from Chatbot.chatbot import main as chatbot_main
 from Extraction.app import main as extraction_main
 
 def main():
-    # Set page config only once at the start
-    st.set_page_config(
-        page_title="LEOPARTS",
-        page_icon="🦁",
-        layout="wide"
-    )
-
     # Initialize session state for navigation
     if 'current_view' not in st.session_state:
         st.session_state.current_view = 'home'
