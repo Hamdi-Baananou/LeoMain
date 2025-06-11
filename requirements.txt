@@ -4,7 +4,8 @@ torchvision>=0.15.0
 torchaudio>=2.0.0
 streamlit>=1.33.0
 supabase>=2.9.0
-sentence-transformers==3.2.1
+transformers>=4.41.0,<5.0.0
+sentence-transformers>=3.2.1
 groq>=0.11.0
 python-dotenv>=1.0.1
 huggingface-hub>=0.20.3
@@ -26,7 +27,6 @@ beautifulsoup4
 
 # Pinned versions for stability
 numpy~=1.26.0
-transformers~=4.40.0
 accelerate~=0.29.0
 protobuf<3.21
 
