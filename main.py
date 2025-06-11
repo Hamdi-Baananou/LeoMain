@@ -11,6 +11,7 @@ from Chatbot.chatbot import main as chatbot_main
 from Extraction.app import main as extraction_main
 
 def main():
+    # Set page config only once at the start
     st.set_page_config(
         page_title="LEOPARTS",
         page_icon="🦁",
@@ -49,10 +50,12 @@ def main():
             with col_left:
                 if st.button("💬 Chat with Leoparts", use_container_width=True):
                     st.session_state.current_view = 'chatbot'
+                    st.rerun()
             
             with col_right:
                 if st.button("📄 Extract a new Part", use_container_width=True):
                     st.session_state.current_view = 'extraction'
+                    st.rerun()
 
     elif st.session_state.current_view == 'chatbot':
         chatbot_main()
