@@ -23,40 +23,50 @@ def main():
     if 'current_view' not in st.session_state:
         st.session_state.current_view = 'home'
 
-    # Navigation sidebar
+    # Navigation sidebar with improved styling
     with st.sidebar:
-        st.title("Navigation")
-        if st.button("🏠 Home"):
+        st.markdown("<h1 style='text-align: center;'>LEOPARTS</h1>", unsafe_allow_html=True)
+        st.markdown("---")
+        
+        # Navigation buttons with improved styling
+        if st.button("🏠 Home", use_container_width=True):
             st.session_state.current_view = 'home'
-        if st.button("💬 Chat with Leoparts"):
+        if st.button("💬 Ask Questions", use_container_width=True):
             st.session_state.current_view = 'chatbot'
-        if st.button("📄 Extract a new Part"):
+        if st.button("📄 Upload Documents", use_container_width=True):
             st.session_state.current_view = 'extraction'
 
     # Main content area
     if st.session_state.current_view == 'home':
-        # Center the content
+        # Center the content with improved styling
         col1, col2, col3 = st.columns([1,2,1])
         with col2:
-            st.markdown("<h1 style='text-align: center;'>LEOPARTS</h1>", unsafe_allow_html=True)
-            st.markdown("<h2 style='text-align: center;'>Welcome!</h2>", unsafe_allow_html=True)
-            st.markdown("<h3 style='text-align: center;'>Choose a Tool</h3>", unsafe_allow_html=True)
+            st.markdown("<h1 style='text-align: center;'>Welcome to LEOPARTS</h1>", unsafe_allow_html=True)
+            st.markdown("<p style='text-align: center; font-size: 1.2em;'>Your intelligent assistant for parts information</p>", unsafe_allow_html=True)
             
             # Add some spacing
             st.markdown("<br>" * 2, unsafe_allow_html=True)
             
-            # Create two columns for the buttons
+            # Create two columns for the buttons with improved styling
             col_left, col_right = st.columns(2)
             
             with col_left:
-                if st.button("💬 Chat with Leoparts", use_container_width=True):
+                st.markdown("<div style='text-align: center;'>", unsafe_allow_html=True)
+                st.markdown("### Ask Questions")
+                st.markdown("Get instant answers about parts and specifications")
+                if st.button("💬 Start Chat", use_container_width=True):
                     st.session_state.current_view = 'chatbot'
                     st.rerun()
+                st.markdown("</div>", unsafe_allow_html=True)
             
             with col_right:
-                if st.button("📄 Extract a new Part", use_container_width=True):
+                st.markdown("<div style='text-align: center;'>", unsafe_allow_html=True)
+                st.markdown("### Upload Documents")
+                st.markdown("Extract information from your documents")
+                if st.button("📄 Upload Files", use_container_width=True):
                     st.session_state.current_view = 'extraction'
                     st.rerun()
+                st.markdown("</div>", unsafe_allow_html=True)
 
     elif st.session_state.current_view == 'chatbot':
         chatbot_main()
