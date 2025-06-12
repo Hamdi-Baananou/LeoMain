@@ -28,31 +28,57 @@ def install_playwright_browsers():
         # First, install system dependencies if on Linux
         if os.name == 'posix':  # Linux/Unix
             try:
-                subprocess.run([
-                    'sudo', 'apt-get', 'update'
-                ], check=True, capture_output=True)
-                
-                subprocess.run([
-                    'sudo', 'apt-get', 'install', '-y',
-                    'libnss3',
-                    'libnspr4',
-                    'libatk1.0-0',
-                    'libatk-bridge2.0-0',
-                    'libcups2',
-                    'libxkbcommon0',
-                    'libatspi2.0-0',
-                    'libxcomposite1',
-                    'libxdamage1',
-                    'libxfixes3',
-                    'libxrandr2',
-                    'libgbm1',
-                    'libpango-1.0-0',
-                    'libcairo2',
-                    'libasound2'
-                ], check=True, capture_output=True)
+                # Try without sudo first
+                try:
+                    subprocess.run([
+                        'apt-get', 'update'
+                    ], check=True, capture_output=True)
+                    
+                    subprocess.run([
+                        'apt-get', 'install', '-y',
+                        'libnss3',
+                        'libnspr4',
+                        'libatk1.0-0',
+                        'libatk-bridge2.0-0',
+                        'libcups2',
+                        'libxkbcommon0',
+                        'libatspi2.0-0',
+                        'libxcomposite1',
+                        'libxdamage1',
+                        'libxfixes3',
+                        'libxrandr2',
+                        'libgbm1',
+                        'libpango-1.0-0',
+                        'libcairo2',
+                        'libasound2'
+                    ], check=True, capture_output=True)
+                except subprocess.CalledProcessError:
+                    # If that fails, try with sudo
+                    subprocess.run([
+                        'sudo', 'apt-get', 'update'
+                    ], check=True, capture_output=True)
+                    
+                    subprocess.run([
+                        'sudo', 'apt-get', 'install', '-y',
+                        'libnss3',
+                        'libnspr4',
+                        'libatk1.0-0',
+                        'libatk-bridge2.0-0',
+                        'libcups2',
+                        'libxkbcommon0',
+                        'libatspi2.0-0',
+                        'libxcomposite1',
+                        'libxdamage1',
+                        'libxfixes3',
+                        'libxrandr2',
+                        'libgbm1',
+                        'libpango-1.0-0',
+                        'libcairo2',
+                        'libasound2'
+                    ], check=True, capture_output=True)
                 logger.success("System dependencies installed successfully.")
             except subprocess.CalledProcessError as e:
-                logger.error(f"Failed to install system dependencies: {e}")
+                logger.warning(f"Failed to install system dependencies: {e}")
                 st.warning("Failed to install system dependencies. Web scraping may not work.")
                 return False
 

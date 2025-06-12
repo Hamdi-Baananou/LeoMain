@@ -1,40 +1,39 @@
---extra-index-url https://download.pytorch.org/whl/cpu
-torch>=2.0.0
-torchvision>=0.15.0
-torchaudio>=2.0.0
-streamlit>=1.33.0
-supabase>=2.9.0
-transformers>=4.41.0,<5.0.0
-sentence-transformers>=3.2.1
-groq>=0.11.0
-python-dotenv>=1.0.1
-huggingface-hub>=0.20.3
-nltk>=3.8.1
-
-# Additional dependencies from Extraction app
+# Core dependencies
+streamlit
 langchain
 langchain-community
 langchain-groq
 langchain-huggingface
 pymupdf
+sentence-transformers
 chromadb
 requests
+python-dotenv
 loguru
 tiktoken
 pysqlite3-binary
-crawl4ai
+
+# Document processing
+crawl4ai>=0.6.0
 beautifulsoup4
 
-# Playwright and its dependencies
-playwright>=1.42.0
-playwright-stealth>=1.0.4
-
-# Pinned versions for stability
+# ML and data processing
 numpy~=1.26.0
+
+# Pin core ML libraries to potentially compatible versions
+--find-links https://download.pytorch.org/whl/torch_stable.html
+torch==2.2.0+cpu
+torchvision==0.17.0+cpu
+torchaudio==2.2.0+cpu
+transformers~=4.40.0
 accelerate~=0.29.0
 protobuf<3.21
 
-# PDF and image processing
+# New dependencies for Mistral Vision and PDF processing
 mistralai>=0.0.7
 pdf2image>=1.16.3
-Pillow>=10.0.0 
+Pillow>=10.0.0
+
+# Web scraping dependencies
+playwright>=1.42.0
+playwright-stealth>=1.0.4 
