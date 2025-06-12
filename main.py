@@ -74,6 +74,7 @@ def main():
                 st.markdown("</div>", unsafe_allow_html=True)
 
     elif st.session_state.current_view == 'chatbot':
+        # Call the chatbot main function without page config
         chatbot_main()
 
     elif st.session_state.current_view == 'extraction':
