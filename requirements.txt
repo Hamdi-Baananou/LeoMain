@@ -16,6 +16,7 @@ pysqlite3-binary
 # Document processing
 crawl4ai>=0.6.0
 beautifulsoup4
+supabase>=2.0.0
 
 # ML and data processing
 numpy~=1.26.0
