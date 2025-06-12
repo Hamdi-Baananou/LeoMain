@@ -10,6 +10,11 @@ import contextlib
 from supabase import create_client, Client
 from sentence_transformers import SentenceTransformer
 from groq import Groq
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def main():
     # --- Configuration ---
@@ -20,7 +25,8 @@ def main():
         if not all([SUPABASE_URL, SUPABASE_SERVICE_KEY, GROQ_API_KEY]):
             raise ValueError("One or more secrets not found.")
     except Exception as e:
-        st.error(f"Error loading secrets: {e}")
+        logger.error(f"Error loading secrets: {e}")
+        st.error("Unable to process your request. Please try again later.")
         st.stop()
 
     # --- Model & DB Config ---
@@ -33,8 +39,8 @@ def main():
     # ░░░  MODEL SWITCH  ░░░
     GROQ_MODEL_FOR_SQL = "qwen-qwq-32b"
     GROQ_MODEL_FOR_ANSWER = "qwen-qwq-32b"
-    st.write(f"Using Groq Model for SQL: {GROQ_MODEL_FOR_SQL}")
-    st.write(f"Using Groq Model for Answer: {GROQ_MODEL_FOR_ANSWER}")
+    logger.info(f"Using Groq Model for SQL: {GROQ_MODEL_FOR_SQL}")
+    logger.info(f"Using Groq Model for Answer: {GROQ_MODEL_FOR_ANSWER}")
 
     # --- Search Parameters ---
     VECTOR_SIMILARITY_THRESHOLD = 0.4
@@ -43,26 +49,29 @@ def main():
     # --- Initialize Clients ---
     try:
         supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-        st.success("Supabase client initialized.")
+        logger.info("Supabase client initialized.")
     except Exception as e:
-        st.error(f"Error initializing Supabase client: {e}")
+        logger.error(f"Error initializing Supabase client: {e}")
+        st.error("Unable to process your request. Please try again later.")
         st.stop()
 
     try:
         st_model = SentenceTransformer(EMBEDDING_MODEL_NAME)
-        st.success(f"Sentence Transformer model ({EMBEDDING_MODEL_NAME}) loaded.")
+        logger.info(f"Sentence Transformer model ({EMBEDDING_MODEL_NAME}) loaded.")
         test_emb = st_model.encode("test")
         if len(test_emb) != EMBEDDING_DIMENSIONS:
             raise ValueError("Embedding dimension mismatch")
     except Exception as e:
-        st.error(f"Error loading Sentence Transformer model: {e}")
+        logger.error(f"Error loading Sentence Transformer model: {e}")
+        st.error("Unable to process your request. Please try again later.")
         st.stop()
 
     try:
         groq_client = Groq(api_key=GROQ_API_KEY)
-        st.success("Groq client initialized.")
+        logger.info("Groq client initialized.")
     except Exception as e:
-        st.error(f"Error initializing Groq client: {e}")
+        logger.error(f"Error initializing Groq client: {e}")
+        st.error("Unable to process your request. Please try again later.")
         st.stop()
 
     # ───────────────────────────────────────────────────────────────────────────
@@ -126,7 +135,8 @@ def main():
         try:
             return st_model.encode(text).tolist()
         except Exception as e:
-            st.error(f"    Error generating query embedding: {e}")
+            logger.error(f"Error generating query embedding: {e}")
+            st.error("Unable to process your request. Please try again later.")
             return None
 
     def find_relevant_markdown_chunks(query_embedding):
@@ -213,6 +223,7 @@ SQL Query:
                 max_tokens=131072
             )
             if not response.choices or not response.choices[0].message:
+                logger.error("No response from Groq API for SQL generation")
                 return None
 
             # ░░░ STRIP REASONING BLOCK FIRST ░░░
@@ -227,17 +238,22 @@ SQL Query:
                              "ALTER", "CREATE", "EXECUTE", "GRANT", "REVOKE"]
                 pattern = re.compile(r'\b(?:' + '|'.join(forbidden) + r')\b', re.IGNORECASE)
                 if pattern.search(generated_sql):
+                    logger.error("Generated SQL contains forbidden operations")
                     return None
 
                 # Check if the target table name appears after FROM
                 table_name_pattern = r'FROM\s+(?:[\w]+\.)?("?' + ATTRIBUTE_TABLE_NAME + r'"?)'
                 if not re.search(table_name_pattern, generated_sql, re.IGNORECASE):
+                    logger.error("Generated SQL does not reference Leoni_attributes table")
                     return None
 
                 return generated_sql
             else:
+                logger.error("Generated SQL is not a valid SELECT statement")
                 return None
         except Exception as e:
+            logger.error(f"Error generating SQL: {e}")
+            st.error("Unable to process your request. Please try again later.")
             return None
 
     # ───────────────────────────────────────────────────────────────────────────
@@ -287,6 +303,8 @@ SQL Query:
             return [_to_dict(row[first_key]) for row in res.data]
 
         except Exception as e:
+            logger.error(f"Error executing SQL: {e}")
+            st.error("Unable to process your request. Please try again later.")
             return []
 
     # ───────────────────────────────────────────────────────────────────────────
@@ -347,7 +365,8 @@ SQL Query:
             raw_reply = response.choices[0].message.content
             return strip_think_tags(raw_reply)
         except Exception as e:
-            st.error(f"    Error calling Groq API: {e}")
+            logger.error(f"Error calling Groq API: {e}")
+            st.error("Unable to process your request. Please try again later.")
             return "Error contacting LLM."
 
     # ───────────────────────────────────────────────────────────────────────────
@@ -418,19 +437,22 @@ Answer the user question based *only* on the provided context."""
                 # Add assistant response to chat history
                 st.session_state.messages.append({"role": "assistant", "content": llm_response})
 
-    # Add a sidebar with information about the models being used
+    # Add a sidebar with user-friendly information
     with st.sidebar:
-        st.header("Model Information")
+        st.header("About")
         st.markdown("""
-        - **SQL Generation Model**: qwen-qwq-32b
-        - **Answer Generation Model**: qwen-qwq-32b
-        - **Embedding Model**: sentence-transformers/all-MiniLM-L6-v2
+        This chatbot helps you find information about LEOparts standards and attributes. You can ask questions about:
+        - Part specifications
+        - Technical standards
+        - Material properties
+        - And more!
         """)
         
-        st.header("Search Parameters")
+        st.header("Tips")
         st.markdown("""
-        - **Vector Similarity Threshold**: 0.4
-        - **Vector Match Count**: 3
+        - Be specific in your questions
+        - Include part numbers when available
+        - Ask about specific attributes you're interested in
         """)
 
 if __name__ == "__main__":
@@ -441,4 +463,4 @@ if __name__ == "__main__":
         layout="wide",
         initial_sidebar_state="expanded"
     )
-    main() 
+    main()
