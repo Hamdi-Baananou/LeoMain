@@ -139,28 +139,28 @@ from extraction_prompts_web import (
     HV_QUALIFIED_WEB_PROMPT
 )
 
-async def process_web_urls(urls: List[str]) -> List[Document]:
-    """Process web URLs and return documents."""
+async def process_web_urls(part_numbers: List[str]) -> List[Document]:
+    """Process part numbers and return documents from web scraping."""
     web_docs = []
-    for url in urls:
+    for part_number in part_numbers:
         try:
-            # Scrape the website table HTML
-            table_html = await scrape_website_table_html(url)
+            # Scrape the website table HTML using part number
+            table_html = await scrape_website_table_html(part_number)
             if table_html:
                 # Create a document from the scraped HTML
                 doc = Document(
                     page_content=table_html,
                     metadata={
-                        'source': f'web_{url}',
+                        'source': f'web_{part_number}',
                         'type': 'web_scrape'
                     }
                 )
                 web_docs.append(doc)
-                logger.info(f"Successfully scraped data from {url}")
+                logger.info(f"Successfully scraped data for part number {part_number}")
             else:
-                logger.warning(f"No data found for {url}")
+                logger.warning(f"No data found for part number {part_number}")
         except Exception as e:
-            logger.error(f"Error processing URL {url}: {e}")
+            logger.error(f"Error processing part number {part_number}: {e}")
     return web_docs
 
 def main():
@@ -188,9 +188,9 @@ def main():
 
     # Display header
     st.markdown("<h1 style='text-align: center;'>Document Information Extraction</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center;'>Upload documents or enter URLs to extract part information</p>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center;'>Upload documents or enter part numbers to extract part information</p>", unsafe_allow_html=True)
 
-    # Create two columns for file upload and URL input
+    # Create two columns for file upload and part number input
     col1, col2 = st.columns(2)
 
     with col1:
@@ -203,17 +203,16 @@ def main():
         )
 
     with col2:
-        st.markdown("### Or Enter URLs")
-        urls = st.text_area(
-            "Enter URLs (one per line)",
-            help="Enter URLs of web pages containing part information"
+        st.markdown("### Enter Part Number")
+        part_number = st.text_input(
+            "Enter part number",
+            help="Enter the part number to extract information from web sources"
         )
-        urls = [url.strip() for url in urls.split('\n') if url.strip()]
 
     # Process button
     if st.button("Extract Information", type="primary", use_container_width=True):
-        if not uploaded_files and not urls:
-            st.warning("Please upload files or enter URLs to extract information.")
+        if not uploaded_files and not part_number:
+            st.warning("Please upload files or enter a part number to extract information.")
             return
 
         with st.spinner("Processing documents..."):
@@ -226,8 +225,8 @@ def main():
                     st.error("Unable to initialize required components. Please try again later.")
                     return
 
-                # Process files and URLs
-                process_files(uploaded_files, urls)
+                # Process files and part number
+                process_files(uploaded_files, [part_number] if part_number else [])
 
                 st.success("Information extraction completed successfully!")
                 st.session_state.extraction_performed = True
