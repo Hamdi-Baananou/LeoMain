@@ -163,6 +163,43 @@ async def process_web_urls(part_numbers: List[str]) -> List[Document]:
             logger.error(f"Error processing part number {part_number}: {e}")
     return web_docs
 
+async def process_files(uploaded_files, part_numbers):
+    """Process uploaded PDF files and part numbers."""
+    try:
+        # Initialize required components if not already done
+        if 'retriever' not in st.session_state or st.session_state.retriever is None:
+            embedding_function = get_embedding_function()
+            if embedding_function is None:
+                raise ValueError("Failed to initialize embedding function")
+            
+            # Process PDFs if any are uploaded
+            pdf_docs = []
+            if uploaded_files:
+                temp_dir = os.path.join(os.getcwd(), "temp_pdf_files")
+                pdf_docs = await process_uploaded_pdfs(uploaded_files, temp_dir)
+            
+            # Process part numbers if any are provided
+            web_docs = []
+            if part_numbers:
+                web_docs = await process_web_urls(part_numbers)
+            
+            # Combine documents, prioritizing web docs if available
+            all_docs = web_docs if web_docs else pdf_docs
+            
+            if all_docs:
+                st.session_state.retriever = setup_vector_store(all_docs, embedding_function)
+                if st.session_state.retriever:
+                    # Create both extraction chains
+                    llm = initialize_llm()
+                    if llm:
+                        st.session_state.pdf_chain = create_pdf_extraction_chain(st.session_state.retriever, llm)
+                        st.session_state.web_chain = create_web_extraction_chain(llm)
+                        return True
+            return False
+    except Exception as e:
+        logger.error(f"Error in process_files: {e}", exc_info=True)
+        raise
+
 def main():
     # Initialize session state
     if 'retriever' not in st.session_state:
@@ -225,11 +262,23 @@ def main():
                     st.error("Unable to initialize required components. Please try again later.")
                     return
 
-                # Process files and part number
-                process_files(uploaded_files, [part_number] if part_number else [])
+                # Create event loop for async processing
+                try:
+                    loop = asyncio.get_event_loop()
+                except RuntimeError:
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
 
-                st.success("Information extraction completed successfully!")
-                st.session_state.extraction_performed = True
+                # Process files and part number
+                success = loop.run_until_complete(
+                    process_files(uploaded_files, [part_number] if part_number else [])
+                )
+
+                if success:
+                    st.success("Information extraction completed successfully!")
+                    st.session_state.extraction_performed = True
+                else:
+                    st.error("Failed to process documents. Please try again.")
 
             except Exception as e:
                 st.error("An error occurred while processing the documents. Please try again.")
