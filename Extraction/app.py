@@ -21,37 +21,77 @@ from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 
 # --- Install Playwright browsers needed by crawl4ai --- 
-# This should run on startup in the Streamlit Cloud environment
 def install_playwright_browsers():
+    """Install Playwright browsers and system dependencies."""
     logger.info("Checking and installing Playwright browsers if needed...")
     try:
-        # Use subprocess to run the command
-        # stdout/stderr=subprocess.PIPE can capture output if needed
-        # check=True will raise an error if the command fails
-        process = subprocess.run([sys.executable, "-m", "playwright", "install"], 
-                                 capture_output=True, text=True, check=False) # Use check=False initially to see output
-        if process.returncode == 0:
-             logger.success("Playwright browsers installed successfully (or already exist).")
-        else:
-             # Log stdout/stderr for debugging if it failed
-             logger.error(f"Playwright browser install command failed with code {process.returncode}.")
-             logger.error(f"stdout: {process.stdout}")
-             logger.error(f"stderr: {process.stderr}")
-             # Optionally raise an error or show a Streamlit warning
-             # st.warning("Failed to install necessary Playwright browsers. Web scraping may fail.")
-        # Alternative using playwright's internal API (might be cleaner if stable)
-        # from playwright.driver import main as playwright_main
-        # playwright_main.main(['install']) # Installs default browser (chromium)
-        # logger.success("Playwright browsers installed successfully via internal API.")
-    except FileNotFoundError:
-        logger.error("Could not find 'playwright' command. Is playwright installed correctly?")
-        st.error("Playwright not found. Please ensure 'playwright' is in requirements.txt")
-    except Exception as e:
-        logger.error(f"An error occurred during Playwright browser installation: {e}", exc_info=True)
-        st.warning(f"An error occurred installing Playwright browsers: {e}. Web scraping may fail.")
+        # First, install system dependencies if on Linux
+        if os.name == 'posix':  # Linux/Unix
+            try:
+                subprocess.run([
+                    'sudo', 'apt-get', 'update'
+                ], check=True, capture_output=True)
+                
+                subprocess.run([
+                    'sudo', 'apt-get', 'install', '-y',
+                    'libnss3',
+                    'libnspr4',
+                    'libatk1.0-0',
+                    'libatk-bridge2.0-0',
+                    'libcups2',
+                    'libxkbcommon0',
+                    'libatspi2.0-0',
+                    'libxcomposite1',
+                    'libxdamage1',
+                    'libxfixes3',
+                    'libxrandr2',
+                    'libgbm1',
+                    'libpango-1.0-0',
+                    'libcairo2',
+                    'libasound2'
+                ], check=True, capture_output=True)
+                logger.success("System dependencies installed successfully.")
+            except subprocess.CalledProcessError as e:
+                logger.error(f"Failed to install system dependencies: {e}")
+                st.warning("Failed to install system dependencies. Web scraping may not work.")
+                return False
 
-install_playwright_browsers() # Run the installation check on script start
-# ----------------------------------------------------
+        # Then install Playwright browsers
+        process = subprocess.run(
+            [sys.executable, "-m", "playwright", "install", "--with-deps"],
+            capture_output=True,
+            text=True,
+            check=False
+        )
+        
+        if process.returncode == 0:
+            logger.success("Playwright browsers installed successfully.")
+            return True
+        else:
+            logger.error(f"Playwright browser install failed: {process.stderr}")
+            st.warning("Failed to install Playwright browsers. Web scraping may not work.")
+            return False
+            
+    except Exception as e:
+        logger.error(f"Error during Playwright installation: {e}", exc_info=True)
+        st.warning(f"Error installing Playwright: {e}. Web scraping may not work.")
+        return False
+
+# Run installation on startup
+playwright_installed = install_playwright_browsers()
+
+# --- Event Loop Setup ---
+def get_or_create_eventloop():
+    """Get the current event loop or create a new one."""
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    return loop
+
+# Initialize event loop
+loop = get_or_create_eventloop()
 
 # Import project modules
 import config
@@ -261,13 +301,6 @@ def main():
                 if embedding_function is None or llm is None:
                     st.error("Unable to initialize required components. Please try again later.")
                     return
-
-                # Create event loop for async processing
-                try:
-                    loop = asyncio.get_event_loop()
-                except RuntimeError:
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
 
                 # Process files and part number
                 async def process_all():

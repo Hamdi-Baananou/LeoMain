@@ -25,6 +25,10 @@ pysqlite3-binary
 crawl4ai
 beautifulsoup4
 
+# Playwright and its dependencies
+playwright>=1.42.0
+playwright-stealth>=1.0.4
+
 # Pinned versions for stability
 numpy~=1.26.0
 accelerate~=0.29.0
