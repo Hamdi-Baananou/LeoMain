@@ -1,22 +1,24 @@
 # Core dependencies
-streamlit
+streamlit>=1.33.0
 langchain
 langchain-community
-langchain-groq
+langchain-groq>=0.11.0
 langchain-huggingface
 pymupdf
-sentence-transformers
+sentence-transformers==3.2.1
 chromadb
 requests
-python-dotenv
+python-dotenv>=1.0.1
 loguru
 tiktoken
 pysqlite3-binary
 
-# Document processing
+# Document processing and web scraping
 crawl4ai>=0.6.0
 beautifulsoup4
-supabase>=2.0.0
+supabase>=2.9.0
+huggingface-hub>=0.20.3
+nltk>=3.8.1
 
 # ML and data processing
 numpy~=1.26.0
