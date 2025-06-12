@@ -270,9 +270,32 @@ def main():
                     asyncio.set_event_loop(loop)
 
                 # Process files and part number
-                success = loop.run_until_complete(
-                    process_files(uploaded_files, [part_number] if part_number else [])
-                )
+                async def process_all():
+                    # Process PDFs if any are uploaded
+                    pdf_docs = []
+                    if uploaded_files:
+                        temp_dir = os.path.join(os.getcwd(), "temp_pdf_files")
+                        pdf_docs = await process_uploaded_pdfs(uploaded_files, temp_dir)
+                    
+                    # Process part number if provided
+                    web_docs = []
+                    if part_number:
+                        web_docs = await process_web_urls([part_number])
+                    
+                    # Combine documents, prioritizing web docs if available
+                    all_docs = web_docs if web_docs else pdf_docs
+                    
+                    if all_docs:
+                        st.session_state.retriever = setup_vector_store(all_docs, embedding_function)
+                        if st.session_state.retriever:
+                            # Create both extraction chains
+                            st.session_state.pdf_chain = create_pdf_extraction_chain(st.session_state.retriever, llm)
+                            st.session_state.web_chain = create_web_extraction_chain(llm)
+                            return True
+                    return False
+
+                # Run the async processing
+                success = loop.run_until_complete(process_all())
 
                 if success:
                     st.success("Information extraction completed successfully!")
@@ -303,9 +326,6 @@ def main():
             mime="text/csv",
             use_container_width=True
         )
-
-    # Rest of your helper functions remain unchanged
-    # ... (keep all the helper functions as they are)
 
 if __name__ == "__main__":
     main()
