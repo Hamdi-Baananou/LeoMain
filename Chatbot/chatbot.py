@@ -438,22 +438,7 @@ Answer the user question based *only* on the provided context."""
                 st.session_state.messages.append({"role": "assistant", "content": llm_response})
 
     # Add a sidebar with user-friendly information
-    with st.sidebar:
-        st.header("About")
-        st.markdown("""
-        This chatbot helps you find information about LEOparts standards and attributes. You can ask questions about:
-        - Part specifications
-        - Technical standards
-        - Material properties
-        - And more!
-        """)
-        
-        st.header("Tips")
-        st.markdown("""
-        - Be specific in your questions
-        - Include part numbers when available
-        - Ask about specific attributes you're interested in
-        """)
+    
 
 if __name__ == "__main__":
     # Set page config only when running the script directly
