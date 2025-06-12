@@ -28,7 +28,7 @@ NORMALIZE_EMBEDDINGS = True # Add this line (Often recommended for sentence tran
 
 # --- Vector Store Configuration ---
 # Define the persistence directory (can be None for in-memory)
-CHROMA_PERSIST_DIRECTORY = os.getenv("CHROMA_PERSIST_DIRECTORY", "./chroma_db_prod") # Use consistent variable name
+CHROMA_PERSIST_DIRECTORY = None  # Changed from os.getenv("CHROMA_PERSIST_DIRECTORY", "./chroma_db_prod")
 COLLECTION_NAME = os.getenv("COLLECTION_NAME", "pdf_qa_prod_collection") # Use the name expected by vector_store.py
 
 # *** Calculate the is_persistent flag ***

@@ -19,6 +19,11 @@ from Chatbot.chatbot import main as chatbot_main
 from Extraction.app import main as extraction_main
 
 def main():
+    # Clear session state on page reload
+    if 'page_reloaded' not in st.session_state:
+        st.session_state.clear()
+        st.session_state.page_reloaded = True
+
     # Initialize session state for navigation
     if 'current_view' not in st.session_state:
         st.session_state.current_view = 'home'
