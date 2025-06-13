@@ -16,6 +16,7 @@ tiktoken
 pysqlite3-binary
 crawl4ai
 beautifulsoup4
+playwright>=1.42.0
 
 # ML and AI dependencies
 numpy~=1.26.0
