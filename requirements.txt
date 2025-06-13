@@ -1,5 +1,8 @@
-# Core dependencies
+# Common dependencies for main app
 streamlit>=1.33.0
+python-dotenv>=1.0.1
+
+# Core dependencies
 langchain>=0.1.0
 langchain-community>=0.0.10
 langchain-groq>=0.0.1
@@ -9,7 +12,6 @@ transformers>=4.41.0,<5.0.0
 sentence-transformers==3.2.1
 chromadb>=0.4.0
 requests>=2.31.0
-python-dotenv>=1.0.1
 loguru>=0.7.0
 tiktoken>=0.5.0
 pysqlite3-binary>=0.5.0
@@ -19,11 +21,11 @@ playwright==1.42.0
 
 # ML and AI dependencies
 numpy>=1.26.0
-torch==2.2.0
-torchvision==0.15.1
+torch>=2.0.0
+torchvision>=0.15.0
 torchaudio>=2.0.0
-accelerate==0.29.3
-protobuf==3.20.3  # Compatible with transformers
+accelerate>=0.29.0
+protobuf<3.21
 
 # Vision and PDF processing
 mistralai>=0.0.7
