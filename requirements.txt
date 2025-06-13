@@ -2,20 +2,22 @@
 
 # Core dependencies
 streamlit>=1.33.0
-langchain
-langchain-community
-langchain-groq
-langchain-huggingface
-pymupdf
+langchain>=0.1.0
+langchain-community>=0.0.10
+langchain-groq>=0.0.1
+langchain-huggingface>=0.0.1
+pymupdf>=1.23.0
 sentence-transformers==3.2.1
-chromadb
-requests
+chromadb>=0.4.22
+requests>=2.31.0
 python-dotenv>=1.0.1
-loguru
-tiktoken
-pysqlite3-binary
-crawl4ai
-beautifulsoup4
+loguru>=0.7.2
+tiktoken>=0.5.2
+pysqlite3-binary>=0.5.1
+beautifulsoup4>=4.12.0
+
+# Web scraping
+crawl4ai>=0.6.0
 playwright>=1.42.0
 
 # ML and AI dependencies
@@ -27,7 +29,7 @@ protobuf<3.21
 # Vision and PDF processing
 mistralai>=0.0.7
 pdf2image>=1.16.3
-Pillow>=10.0.0
+Pillow>=10.4.0,<11.0.0
 
 # PyTorch and related packages
 --extra-index-url https://download.pytorch.org/whl/cpu
