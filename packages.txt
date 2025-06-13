@@ -26,6 +26,3 @@ libdbus-glib-1-2
 chromium
 chromium-driver
 xvfb
-python3.12
-python3.12-dev
-python3.12-venv
