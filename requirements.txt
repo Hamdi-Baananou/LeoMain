@@ -24,11 +24,11 @@ nltk>=3.8.1
 numpy~=1.26.0
 
 # Pin core ML libraries to potentially compatible versions
---find-links https://download.pytorch.org/whl/torch_stable.html
-torch==2.2.0+cpu
-torchvision==0.17.0+cpu
-torchaudio==2.2.0+cpu
-transformers~=4.40.0
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch>=2.0.0
+torchvision>=0.15.0
+torchaudio>=2.0.0
+transformers>=4.41.0
 accelerate~=0.29.0
 protobuf<3.21
 
