@@ -439,9 +439,19 @@ async def scrape_website_table_html(part_number: str) -> Optional[str]:
             extraction_strategy=JsonCssExtractionStrategy(extraction_schema)
         )
         
+        # Updated browser config for Streamlit Cloud compatibility
         browser_config = BrowserConfig(
             headless=True,
-            verbose=False
+            verbose=False,
+            browser_type="chromium",
+            browser_args=[
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-accelerated-2d-canvas",
+                "--disable-gpu",
+                "--window-size=1920x1080"
+            ]
         )
 
         try:
