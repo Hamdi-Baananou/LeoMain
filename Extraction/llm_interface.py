@@ -19,6 +19,30 @@ from crawl4ai.extraction_strategy import JsonCssExtractionStrategy
 from bs4 import BeautifulSoup # Import BeautifulSoup
 import re # Import re for regular expressions
 
+# Website configurations for scraping
+WEBSITE_CONFIGS = [
+    {
+        "name": "TE Connectivity",
+        "base_url_template": "https://www.te.com/en/product-{part_number}.html",
+        "table_selector": "#pdp-features-tabpanel",
+        "part_number_pattern": r"^\d{7}-\d$",
+        "pre_extraction_js": None
+    },
+    {
+        "name": "Mouser",
+        "base_url_template": "https://www.mouser.com/ProductDetail/TE-Connectivity/{part_number}",
+        "table_selector": ".product-details-table",
+        "part_number_pattern": r"^\d{7}-\d$",
+        "pre_extraction_js": None
+    }
+]
+
+def get_site_configs() -> List[Dict]:
+    """
+    Returns the list of website configurations for scraping.
+    """
+    return WEBSITE_CONFIGS
+
 # --- Initialize LLM ---
 @logger.catch(reraise=True) # Keep catch for unexpected errors during init
 def initialize_llm():

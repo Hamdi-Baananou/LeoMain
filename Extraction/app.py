@@ -34,14 +34,14 @@ loop = get_or_create_eventloop()
 
 # Import project modules
 import config
-from pdf_processor import process_uploaded_pdfs, process_pdfs_in_background
-from vector_store import (
+from Extraction.pdf_processor import process_uploaded_pdfs, process_pdfs_in_background
+from Extraction.vector_store import (
     get_embedding_function,
     setup_vector_store,
     load_existing_vector_store
 )
 # Updated imports from llm_interface
-from llm_interface import (
+from Extraction.llm_interface import (
     initialize_llm,
     create_pdf_extraction_chain, # Use PDF chain func
     create_web_extraction_chain, # Use Web chain func
@@ -49,7 +49,7 @@ from llm_interface import (
     scrape_website_table_html
 )
 # Import the prompts
-from extraction_prompts import (
+from Extraction.extraction_prompts import (
     # Material Properties
     MATERIAL_PROMPT,
     MATERIAL_NAME_PROMPT,
@@ -83,7 +83,7 @@ from extraction_prompts import (
     HV_QUALIFIED_PROMPT
 )
 # Import the NEW web prompts
-from extraction_prompts_web import (
+from Extraction.extraction_prompts_web import (
     # Material Properties
     MATERIAL_FILLING_WEB_PROMPT,
     MATERIAL_NAME_WEB_PROMPT,
