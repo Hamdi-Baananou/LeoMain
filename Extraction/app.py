@@ -14,79 +14,10 @@ import json # Import the json library
 import pandas as pd # Add pandas import
 import re # Import the 're' module for regular expressions
 import asyncio # Add asyncio import
-import subprocess # To run playwright install
 from typing import List
 from langchain.docstore.document import Document
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
-
-# --- Install Playwright browsers needed by crawl4ai --- 
-def install_playwright_browsers():
-    """Install Playwright browsers and system dependencies."""
-    logger.info("Checking and installing Playwright browsers if needed...")
-    try:
-        # First, install system dependencies if on Linux
-        if os.name == 'posix':  # Linux/Unix
-            try:
-                # Install only the essential dependencies for Streamlit Cloud
-                subprocess.run([
-                    'apt-get', 'update'
-                ], check=True, capture_output=True)
-                
-                subprocess.run([
-                    'apt-get', 'install', '-y',
-                    'libnss3',
-                    'libnspr4',
-                    'libatk1.0-0',
-                    'libatk-bridge2.0-0',
-                    'libcups2',
-                    'libxkbcommon0',
-                    'libatspi2.0-0',
-                    'libxcomposite1',
-                    'libxdamage1',
-                    'libxfixes3',
-                    'libxrandr2',
-                    'libgbm1',
-                    'libpango-1.0-0',
-                    'libcairo2',
-                    'libasound2'
-                ], check=True, capture_output=True)
-                logger.success("System dependencies installed successfully.")
-            except subprocess.CalledProcessError as e:
-                logger.warning(f"Failed to install system dependencies: {e}")
-                st.warning("Failed to install system dependencies. Web scraping may not work.")
-                return False
-
-        # Then install Playwright browsers with specific configuration for Streamlit Cloud
-        process = subprocess.run(
-            [
-                sys.executable, 
-                "-m", 
-                "playwright", 
-                "install", 
-                "chromium",
-                "--with-deps"
-            ],
-            capture_output=True,
-            text=True,
-            check=False
-        )
-        
-        if process.returncode == 0:
-            logger.success("Playwright browsers installed successfully.")
-            return True
-        else:
-            logger.error(f"Playwright browser install failed: {process.stderr}")
-            st.warning("Failed to install Playwright browsers. Web scraping may not work.")
-            return False
-            
-    except Exception as e:
-        logger.error(f"Error during Playwright installation: {e}", exc_info=True)
-        st.warning(f"Error installing Playwright: {e}. Web scraping may not work.")
-        return False
-
-# Run installation on startup
-playwright_installed = install_playwright_browsers()
 
 # --- Event Loop Setup ---
 def get_or_create_eventloop():
