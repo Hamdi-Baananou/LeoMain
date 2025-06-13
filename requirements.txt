@@ -1,43 +1,43 @@
 # requirements.txt
 
 # Core dependencies
-streamlit>=1.33.0
-langchain>=0.1.0
-langchain-community>=0.0.10
-langchain-groq>=0.0.1
-langchain-huggingface>=0.0.1
-pymupdf>=1.23.0
-sentence-transformers==3.2.1
-chromadb>=0.4.22
-requests>=2.31.0
-python-dotenv>=1.0.1
-loguru>=0.7.2
-tiktoken>=0.5.2
-pysqlite3-binary>=0.5.1
-beautifulsoup4>=4.12.0
+streamlit
+langchain
+langchain-community
+langchain-groq
+langchain-huggingface
+pymupdf
+sentence-transformers
+chromadb
+requests
+python-dotenv
+loguru
+tiktoken
+pysqlite3-binary
+beautifulsoup4
 
 # Web scraping
-crawl4ai>=0.6.0
-playwright>=1.42.0
+crawl4ai
+playwright
 
 # ML and AI dependencies
-numpy~=1.26.0
-transformers>=4.41.0,<5.0.0
-accelerate~=0.29.0
-protobuf<3.21
+numpy
+transformers
+accelerate
+protobuf
 
 # Vision and PDF processing
-mistralai>=0.0.7
-pdf2image>=1.16.3
-Pillow>=10.4.0,<11.0.0
+mistralai
+pdf2image
+Pillow
 
 # PyTorch and related packages
 --extra-index-url https://download.pytorch.org/whl/cpu
-torch>=2.0.0
-torchvision>=0.15.0
-torchaudio>=2.0.0
+torch
+torchvision
+torchaudio
 
 # Additional utilities
-supabase>=2.9.0
-huggingface-hub>=0.20.3
-nltk>=3.8.1
+supabase
+huggingface-hub
+nltk
