@@ -14,26 +14,23 @@ python-dotenv
 loguru
 tiktoken
 pysqlite3-binary
+crawl4ai
 beautifulsoup4
 
-# Web scraping
-crawl4ai
-playwright
-
 # ML and AI dependencies
-numpy
-transformers
-accelerate
-protobuf
+numpy~=1.26.0
+torch~=2.2.0
+transformers~=4.40.0
+accelerate~=0.29.0
+protobuf<3.21
 
 # Vision and PDF processing
-mistralai
-pdf2image
-Pillow
+mistralai>=0.0.7
+pdf2image>=1.16.3
+Pillow>=10.0.0
 
 # PyTorch and related packages
 --extra-index-url https://download.pytorch.org/whl/cpu
-torch
 torchvision
 torchaudio
 
