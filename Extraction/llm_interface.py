@@ -422,37 +422,23 @@ async def scrape_website_table_html(part_number: str) -> Optional[str]:
         js_code = site_config.get("pre_extraction_js")
         logger.debug(f"Attempting scrape on {site_name} ({target_url}) for table selector '{selector}'")
 
-        # Configure crawler run
+        # Configure crawler run - Use JsonCssExtractionStrategy to get outerHTML
         extraction_schema = {
             "name": "TableHTML",
-            "baseSelector": "html",
+            "baseSelector": "html", # Apply to whole document
             "fields": [
+                # Try type: "html" to get the inner/outer HTML of the element
                 {"name": "html_content", "selector": selector, "type": "html"}
             ]
         }
-        
         run_config = CrawlerRunConfig(
-            cache_mode=CacheMode.BYPASS,
-            js_code=[js_code] if js_code else None,
-            page_timeout=20000,
-            verbose=False,
-            extraction_strategy=JsonCssExtractionStrategy(extraction_schema)
-        )
-        
-        # Updated browser config for Streamlit Cloud compatibility
-        browser_config = BrowserConfig(
-            headless=True,
-            verbose=False,
-            browser_type="chromium",
-            args=[
-                "--no-sandbox",
-                "--disable-setuid-sandbox",
-                "--disable-dev-shm-usage",
-                "--disable-accelerated-2d-canvas",
-                "--disable-gpu",
-                "--window-size=1920x1080"
-            ]
-        )
+                 cache_mode=CacheMode.BYPASS,
+                 js_code=[js_code] if js_code else None,
+                 page_timeout=20000,
+                 verbose=False, # Set to True for detailed crawl4ai logs
+                 extraction_strategy=JsonCssExtractionStrategy(extraction_schema) # Add strategy
+            )
+        browser_config = BrowserConfig(verbose=False) # Headless default
 
         try:
             async with AsyncWebCrawler(config=browser_config) as crawler:
