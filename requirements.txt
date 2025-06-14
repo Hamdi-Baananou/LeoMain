@@ -1,26 +1,47 @@
---extra-index-url https://pypi.org/simple
+--extra-index-url https://download.pytorch.org/whl/cpu
 
-streamlit
-langchain
-langchain-community
-langchain-groq
-langchain-huggingface
-pymupdf
-sentence-transformers
-chromadb
-requests
-python-dotenv
-loguru
-tiktoken
-pysqlite3-binary
-crawl4ai>=0.6.0
-beautifulsoup4
-
-numpy~=1.26.0
-torch~=2.2.0
-transformers~=4.40.0
-accelerate~=0.29.0
+# Core AI + Model Support
+torch>=2.0.0,<2.3.0
+torchvision>=0.15.0,<0.17
+torchaudio>=2.0.0,<2.3.0
+sentence-transformers==3.2.1
+transformers>=4.40.0,<5.0.0
+accelerate>=0.29.0,<0.30.0
 protobuf<3.21
-mistralai>=0.0.7
+
+# Streamlit + Web + Infra
+streamlit>=1.33.0
+python-dotenv>=1.0.1
+loguru>=0.7.0
+requests>=2.31.0
+
+# Groq + Supabase
+groq>=0.11.0
+supabase>=2.9.0
+
+# NLP and Utilities
+nltk>=3.8.1
+tiktoken>=0.5.0
+huggingface-hub>=0.20.3
+
+# Vector DB + LangChain
+chromadb>=0.4.0
+pysqlite3-binary>=0.5.0
+
+# LangChain stack
+langchain>=0.1.0
+langchain-community>=0.0.10
+langchain-groq>=0.0.1
+langchain-huggingface>=0.0.1
+
+# PDF + Image
+pymupdf>=1.23.0
 pdf2image>=1.16.3
-Pillow>=10.4.0,<11.0.0
+Pillow>=10.0.0,<10.4.0  # Required for crawl4ai compatibility
+
+# Web scraping
+beautifulsoup4>=4.12.0
+crawl4ai>=0.6.0  # Newer version that supports Pillow>=10.0,<11.0
+
+# Optional: Playwright (if needed for crawl4ai)
+playwright==1.42.0
