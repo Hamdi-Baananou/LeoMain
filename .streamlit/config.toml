@@ -1,5 +1,3 @@
 [server]
 headless = true
-
-[server.fileWatcherType]
-type = "poll"
+fileWatcherType = "poll"
