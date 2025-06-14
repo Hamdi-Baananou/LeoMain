@@ -15,7 +15,7 @@ sentence-transformers==3.2.1
 chromadb
 tiktoken
 huggingface-hub>=0.20.3
-transformers~=4.40.0
+transformers>=4.41.0,<5.0.0
 accelerate~=0.29.0
 protobuf<3.21
 
