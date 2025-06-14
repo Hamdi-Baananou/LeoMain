@@ -2,6 +2,20 @@ import streamlit as st
 import sys
 import os
 from pathlib import Path
+import subprocess
+from playwright.sync_api import sync_playwright
+
+def ensure_playwright_browser():
+    chromium_path = os.path.expanduser("~/.cache/ms-playwright/chromium-1169/chrome-linux/chrome")
+    if not os.path.exists(chromium_path):
+        try:
+            print("Installing Playwright browsers...")
+            subprocess.run(["playwright", "install", "chromium"], check=True)
+        except Exception as e:
+            print(f"Playwright browser installation failed: {e}")
+
+# Ensure Playwright browser is installed
+ensure_playwright_browser()
 
 # Set page config must be the first Streamlit command
 st.set_page_config(
