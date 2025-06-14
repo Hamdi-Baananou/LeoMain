@@ -1,12 +1,7 @@
-# Required for pdf2image (PDF to image conversion)
 poppler-utils
-
-# Headless rendering & Chromium for Crawl4AI or web scraping
 xvfb
 chromium
 chromium-driver
-
-# Chromium runtime dependencies
 libglib2.0-0
 libnss3
 libx11-6
