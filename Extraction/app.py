@@ -7,6 +7,14 @@ sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 
 # app.py
 import streamlit as st
+
+# --- Streamlit Page Configuration ---
+st.set_page_config(
+    page_title="PDF Auto-Extraction with Groq", # Updated title
+    page_icon="📄",
+    layout="wide"
+)
+
 import os
 import time
 from loguru import logger
@@ -49,9 +57,6 @@ def install_playwright_browsers():
     except Exception as e:
         logger.error(f"An error occurred during Playwright browser installation: {e}", exc_info=True)
         st.warning(f"An error occurred installing Playwright browsers: {e}. Web scraping may fail.")
-
-install_playwright_browsers() # Run the installation check on script start
-# ----------------------------------------------------
 
 # Import project modules
 import config
@@ -139,12 +144,8 @@ from Extraction.extraction_prompts_web import (
     HV_QUALIFIED_WEB_PROMPT
 )
 
-# --- Streamlit Page Configuration ---
-st.set_page_config(
-    page_title="PDF Auto-Extraction with Groq", # Updated title
-    page_icon="📄",
-    layout="wide"
-)
+# Run Playwright browser installation
+install_playwright_browsers()
 
 # --- Logging Configuration ---
 # Configure Loguru logger (can be more flexible than standard logging)
@@ -1045,6 +1046,137 @@ else:
     # This logic might need review depending on how Stage 1/2 errors are handled
     elif (st.session_state.pdf_chain or st.session_state.web_chain) and st.session_state.extraction_performed:
         st.warning("Extraction process completed, but no valid results were generated for some fields. Check logs or raw outputs if available.")
+
+def main():
+    # --- Logging Configuration ---
+    # Configure Loguru logger (can be more flexible than standard logging)
+    # logger.add("logs/app_{time}.log", rotation="10 MB", level="INFO") # Example: Keep file logging if desired
+    # Toasts are disabled as per previous request
+    # Errors will still be shown via st.error where used explicitly
+
+    # --- Application State ---
+    # Use Streamlit's session state to hold persistent data across reruns
+    if 'retriever' not in st.session_state:
+        st.session_state.retriever = None
+    # Add states for BOTH chains
+    if 'pdf_chain' not in st.session_state:
+        st.session_state.pdf_chain = None
+    if 'web_chain' not in st.session_state:
+        st.session_state.web_chain = None
+    # Remove old single chain state
+    # if 'extraction_chain' not in st.session_state:
+    #     st.session_state.extraction_chain = None
+    if 'processed_files' not in st.session_state:
+        st.session_state.processed_files = [] # Store names of processed files
+    # Add state for evaluation
+    if 'evaluation_results' not in st.session_state:
+        st.session_state.evaluation_results = [] # List to store detailed results per field
+    if 'evaluation_metrics' not in st.session_state:
+        st.session_state.evaluation_metrics = None # Dict to store summary metrics
+    # Add flag to track if extraction has run for the current data
+    if 'extraction_performed' not in st.session_state:
+        st.session_state.extraction_performed = False
+    if 'scraped_table_html_cache' not in st.session_state:
+        st.session_state.scraped_table_html_cache = None # Cache for scraped HTML for the current part number
+    if 'current_part_number_scraped' not in st.session_state:
+        st.session_state.current_part_number_scraped = None # Track which part number was last scraped for
+
+    # Add new session state for background tasks
+    if 'pdf_processing_task' not in st.session_state:
+        st.session_state.pdf_processing_task = None
+    if 'pdf_processing_complete' not in st.session_state:
+        st.session_state.pdf_processing_complete = False
+    if 'pdf_processing_results' not in st.session_state:
+        st.session_state.pdf_processing_results = None
+
+    # --- Global Variables / Initialization ---
+    # Initialize embeddings (this is relatively heavy, do it once)
+    @st.cache_resource
+    def initialize_embeddings():
+        # Let exceptions from get_embedding_function propagate
+        embeddings = get_embedding_function()
+        return embeddings
+
+    # Initialize LLM (also potentially heavy/needs API key check)
+    @st.cache_resource
+    def initialize_llm_cached():
+        # logger.info("Attempting to initialize LLM...") # Log before calling if needed
+        llm_instance = initialize_llm()
+        # logger.success("LLM initialized successfully.") # Log after successful call if needed
+        return llm_instance
+
+    # --- Wrap the cached function call in try-except ---
+    embedding_function = None
+    llm = None
+
+    try:
+        logger.info("Attempting to initialize embedding function...")
+        embedding_function = initialize_embeddings()
+        if embedding_function:
+             logger.success("Embedding function initialized successfully.")
+    except Exception as e:
+        logger.error(f"Failed to initialize embeddings: {e}", exc_info=True)
+        st.error(f"Fatal Error: Could not initialize embedding model. Error: {e}")
+        st.stop()
+
+    try:
+        logger.info("Attempting to initialize LLM...")
+        llm = initialize_llm_cached()
+        if llm:
+            logger.success("LLM initialized successfully.")
+    except Exception as e:
+         logger.error(f"Failed to initialize LLM: {e}", exc_info=True)
+         st.error(f"Fatal Error: Could not initialize LLM. Error: {e}")
+         st.stop()
+
+    # --- Check if initializations failed ---
+    if embedding_function is None or llm is None:
+         if not st.exception: # If st.stop() wasn't called already
+            st.error("Core components (Embeddings or LLM) failed to initialize. Cannot continue.")
+         st.stop()
+
+    # --- Load existing vector store or process uploads ---
+    # Reset evaluation state when processing new files
+    def reset_evaluation_state():
+        st.session_state.evaluation_results = []
+        st.session_state.evaluation_metrics = None
+        st.session_state.extraction_performed = False # Reset the flag here too
+        st.session_state.scraped_table_html_cache = None # Clear scraped HTML cache
+        st.session_state.current_part_number_scraped = None # Clear scraped part number tracker
+        # Clear data editor state if it exists
+        if 'gt_editor' in st.session_state:
+            del st.session_state['gt_editor']
+
+    # Try loading existing vector store and create BOTH extraction chains
+    if st.session_state.retriever is None and config.CHROMA_SETTINGS.is_persistent and embedding_function:
+        logger.info("Attempting to load existing vector store...")
+        st.session_state.retriever = load_existing_vector_store(embedding_function)
+        if st.session_state.retriever:
+            logger.success("Successfully loaded retriever from persistent storage.")
+            st.session_state.processed_files = ["Existing data loaded from disk"]
+            # --- Create BOTH Extraction Chains --- 
+            logger.info("Creating extraction chains from loaded retriever...")
+            st.session_state.pdf_chain = create_pdf_extraction_chain(st.session_state.retriever, llm)
+            st.session_state.web_chain = create_web_extraction_chain(llm)
+            if not st.session_state.pdf_chain or not st.session_state.web_chain:
+                st.warning("Failed to create one or both extraction chains from loaded retriever.")
+            # ------------------------------------
+            # Don't reset evaluation if loading existing data, but ensure extraction hasn't run yet
+            st.session_state.extraction_performed = False # Ensure flag is false on load
+        else:
+            logger.warning("No existing persistent vector store found or failed to load.")
+
+    # --- UI Layout ---
+    persistence_enabled = config.CHROMA_SETTINGS.is_persistent
+    st.title("📄 PDF Auto-Extraction with Groq") # Updated title
+    st.markdown("Upload PDF documents, process them, and view automatically extracted information.") # Updated description
+    st.markdown(f"**Model:** `{config.LLM_MODEL_NAME}` | **Embeddings:** `{config.EMBEDDING_MODEL_NAME}` | **Persistence:** `{'Enabled' if persistence_enabled else 'Disabled'}`")
+
+    # Check for API Key (LLM init already does this, but maybe keep a visual warning)
+    if not config.GROQ_API_KEY:
+        st.warning("Groq API Key not found. Please set the GROQ_API_KEY environment variable.", icon="⚠️")
+
+    # ... rest of the main function code ...
 
 if __name__ == "__main__":
     main()
