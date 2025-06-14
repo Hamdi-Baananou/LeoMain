@@ -275,166 +275,147 @@ st.markdown(f"**Model:** `{config.LLM_MODEL_NAME}` | **Embeddings:** `{config.EM
 if not config.GROQ_API_KEY:
     st.warning("Groq API Key not found. Please set the GROQ_API_KEY environment variable.", icon="⚠️")
 
-# --- Sidebar for PDF Upload and Processing ---
-with st.sidebar:
-    st.header("1. Document Processing")
+# --- Main Area for Document Upload and Processing ---
+st.header("1. Document Upload and Processing")
+
+# Create two columns for the upload section
+col1, col2 = st.columns([2, 1])
+
+with col1:
+    st.subheader("Upload PDF Files")
     uploaded_files = st.file_uploader(
-        "Upload PDF Files",
+        "Select one or more PDF files",
         type="pdf",
         accept_multiple_files=True,
-        key="pdf_uploader"
+        key="pdf_uploader",
+        help="Upload PDF documents containing part information"
     )
 
-    # --- Add Part Number Input ---
-    st.text_input("Enter Part Number (Optional):", key="part_number_input", value=st.session_state.get("part_number_input", ""))
-    # ---------------------------
+with col2:
+    st.subheader("Part Number")
+    part_number = st.text_input(
+        "Enter Part Number (Optional)",
+        key="part_number_input",
+        value=st.session_state.get("part_number_input", ""),
+        help="Enter the part number to search for additional information online"
+    )
 
-    process_button = st.button("Process Uploaded Documents", key="process_button", type="primary")
+# Process button in a full-width container
+st.markdown("---")
+process_button = st.button("🚀 Process Documents", key="process_button", type="primary", use_container_width=True)
 
-    if process_button and uploaded_files:
-        if not embedding_function or not llm:
-             st.error("Core components (Embeddings or LLM) failed to initialize earlier. Cannot process documents.")
-        else:
-            # Reset state including evaluation and the extraction flag
-            st.session_state.retriever = None
-            # Reset BOTH chains
-            st.session_state.pdf_chain = None
-            st.session_state.web_chain = None
-            st.session_state.processed_files = []
-            reset_evaluation_state() # Reset evaluation results AND extraction_performed flag
+if process_button and uploaded_files:
+    if not embedding_function or not llm:
+        st.error("Core components (Embeddings or LLM) failed to initialize earlier. Cannot process documents.")
+    else:
+        # Reset state including evaluation and the extraction flag
+        st.session_state.retriever = None
+        # Reset BOTH chains
+        st.session_state.pdf_chain = None
+        st.session_state.web_chain = None
+        st.session_state.processed_files = []
+        reset_evaluation_state() # Reset evaluation results AND extraction_performed flag
 
-            filenames = [f.name for f in uploaded_files]
-            logger.info(f"Starting processing for {len(filenames)} files: {', '.join(filenames)}")
-            
-            # Initialize processed_docs
-            processed_docs = []
-            
-            # --- PDF Processing ---
-            with st.spinner("Processing PDFs... Loading, cleaning, splitting..."):
+        filenames = [f.name for f in uploaded_files]
+        logger.info(f"Starting processing for {len(filenames)} files: {', '.join(filenames)}")
+        
+        # Initialize processed_docs
+        processed_docs = []
+        
+        # --- PDF Processing ---
+        with st.spinner("Processing PDFs... Loading, cleaning, splitting..."):
+            try:
+                start_time = time.time()
+                temp_dir = os.path.join(os.getcwd(), "temp_pdf_files")
+                
+                # Create event loop for async processing
+                try:
+                    loop = asyncio.get_event_loop()
+                except RuntimeError:
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                
+                # Start both PDF and web processing in parallel
+                async def process_all():
+                    # Start PDF processing
+                    pdf_task = asyncio.create_task(
+                        process_uploaded_pdfs(uploaded_files, temp_dir)
+                    )
+                    
+                    # Start web processing if part number is provided
+                    web_task = None
+                    if st.session_state.get("part_number_input"):
+                        web_task = asyncio.create_task(
+                            process_web_urls([st.session_state.get("part_number_input")])
+                        )
+                    
+                    # Wait for both tasks to complete
+                    tasks = [pdf_task]
+                    if web_task:
+                        tasks.append(web_task)
+                    
+                    results = await asyncio.gather(*tasks, return_exceptions=True)
+                    
+                    # Process results
+                    pdf_docs = results[0] if not isinstance(results[0], Exception) else []
+                    web_docs = results[1] if len(results) > 1 and not isinstance(results[1], Exception) else []
+                    
+                    # Combine results, prioritizing web docs if available
+                    if web_docs:
+                        return web_docs
+                    return pdf_docs
+                
+                # Run the parallel processing
+                processed_docs = loop.run_until_complete(process_all())
+                
+                processing_time = time.time() - start_time
+                logger.info(f"Processing took {processing_time:.2f} seconds.")
+            except Exception as e:
+                logger.error(f"Failed during processing phase: {e}", exc_info=True)
+                st.error(f"Error during processing: {e}")
+                processed_docs = []  # Ensure it's empty on error
+
+        # --- Vector Store Indexing ---
+        if processed_docs and len(processed_docs) > 0:
+            logger.info(f"Generated {len(processed_docs)} document chunks.")
+            with st.spinner("Indexing documents in vector store..."):
                 try:
                     start_time = time.time()
-                    temp_dir = os.path.join(os.getcwd(), "temp_pdf_files")
-                    
-                    # Create event loop for async processing
-                    try:
-                        loop = asyncio.get_event_loop()
-                    except RuntimeError:
-                        loop = asyncio.new_event_loop()
-                        asyncio.set_event_loop(loop)
-                    
-                    # Start both PDF and web processing in parallel
-                    async def process_all():
-                        # Start PDF processing
-                        pdf_task = asyncio.create_task(
-                            process_uploaded_pdfs(uploaded_files, temp_dir)
-                        )
-                        
-                        # Start web processing if part number is provided
-                        web_task = None
-                        if st.session_state.get("part_number_input"):
-                            web_task = asyncio.create_task(
-                                process_web_urls([st.session_state.get("part_number_input")])
-                            )
-                        
-                        # Wait for both tasks to complete
-                        tasks = [pdf_task]
-                        if web_task:
-                            tasks.append(web_task)
-                        
-                        results = await asyncio.gather(*tasks, return_exceptions=True)
-                        
-                        # Process results
-                        pdf_docs = results[0] if not isinstance(results[0], Exception) else []
-                        web_docs = results[1] if len(results) > 1 and not isinstance(results[1], Exception) else []
-                        
-                        # Combine results, prioritizing web docs if available
-                        if web_docs:
-                            return web_docs
-                        return pdf_docs
-                    
-                    # Run the parallel processing
-                    processed_docs = loop.run_until_complete(process_all())
-                    
-                    processing_time = time.time() - start_time
-                    logger.info(f"Processing took {processing_time:.2f} seconds.")
-                except Exception as e:
-                    logger.error(f"Failed during processing phase: {e}", exc_info=True)
-                    st.error(f"Error during processing: {e}")
-                    processed_docs = []  # Ensure it's empty on error
+                    st.session_state.retriever = setup_vector_store(processed_docs, embedding_function)
+                    indexing_time = time.time() - start_time
+                    logger.info(f"Vector store setup took {indexing_time:.2f} seconds.")
 
-            # --- Vector Store Indexing ---
-            if processed_docs and len(processed_docs) > 0:
-                logger.info(f"Generated {len(processed_docs)} document chunks.")
-                with st.spinner("Indexing documents in vector store..."):
-                    try:
-                        start_time = time.time()
-                        st.session_state.retriever = setup_vector_store(processed_docs, embedding_function)
-                        indexing_time = time.time() - start_time
-                        logger.info(f"Vector store setup took {indexing_time:.2f} seconds.")
-
-                        if st.session_state.retriever:
-                            st.session_state.processed_files = filenames # Update list
-                            logger.success("Vector store setup complete. Retriever is ready.")
-                            # --- Create BOTH Extraction Chains --- 
-                            with st.spinner("Preparing extraction engines..."):
-                                 st.session_state.pdf_chain = create_pdf_extraction_chain(st.session_state.retriever, llm)
-                                 st.session_state.web_chain = create_web_extraction_chain(llm)
-                            if st.session_state.pdf_chain and st.session_state.web_chain:
-                                logger.success("Extraction chains created.")
-                                # Keep extraction_performed as False here, it will run in the main section
-                                st.success(f"Successfully processed {len(filenames)} file(s). Evaluation below.") # Update message
-                            else:
-                                st.error("Failed to create one or both extraction chains after processing.")
-                                # reset_evaluation_state() called earlier is sufficient
+                    if st.session_state.retriever:
+                        st.session_state.processed_files = filenames # Update list
+                        logger.success("Vector store setup complete. Retriever is ready.")
+                        # --- Create BOTH Extraction Chains --- 
+                        with st.spinner("Preparing extraction engines..."):
+                             st.session_state.pdf_chain = create_pdf_extraction_chain(st.session_state.retriever, llm)
+                             st.session_state.web_chain = create_web_extraction_chain(llm)
+                        if st.session_state.pdf_chain and st.session_state.web_chain:
+                            logger.success("Extraction chains created.")
+                            # Keep extraction_performed as False here, it will run in the main section
+                            st.success(f"Successfully processed {len(filenames)} file(s). Evaluation below.") # Update message
                         else:
-                            st.error("Failed to setup vector store after processing PDFs.")
+                            st.error("Failed to create one or both extraction chains after processing.")
                             # reset_evaluation_state() called earlier is sufficient
-                    except Exception as e:
-                         logger.error(f"Failed during vector store setup: {e}", exc_info=True)
-                         st.error(f"Error setting up vector store: {e}")
-                         # reset_evaluation_state() called earlier is sufficient
-            elif not processed_docs and uploaded_files:
-                st.warning("No text could be extracted or processed from the uploaded PDFs.")
-                # reset_evaluation_state() called earlier is sufficient
+                    else:
+                        st.error("Failed to setup vector store after processing PDFs.")
+                        # reset_evaluation_state() called earlier is sufficient
+                except Exception as e:
+                     logger.error(f"Failed during vector store setup: {e}", exc_info=True)
+                     st.error(f"Error setting up vector store: {e}")
+                     # reset_evaluation_state() called earlier is sufficient
+        elif not processed_docs and uploaded_files:
+            st.warning("No text could be extracted or processed from the uploaded PDFs.")
+            # reset_evaluation_state() called earlier is sufficient
 
-    elif process_button and not uploaded_files:
-        st.warning("Please upload at least one PDF file before processing.")
+elif process_button and not uploaded_files:
+    st.warning("Please upload at least one PDF file before processing.")
 
-    # --- Display processed files status (Simplified) ---
-    st.subheader("Processing Status")
-    # Check if both chains are ready for the full process
-    if st.session_state.pdf_chain and st.session_state.web_chain and st.session_state.processed_files:
-        st.success(f"Ready. Processed: {', '.join(st.session_state.processed_files)}")
-    elif persistence_enabled and st.session_state.retriever and (not st.session_state.pdf_chain or not st.session_state.web_chain):
-         st.warning("Loaded existing data, but failed to create one or both extraction chains.")
-    elif persistence_enabled and st.session_state.retriever:
-         st.success(f"Ready. Using existing data loaded from disk.") # Assuming chains created on load
-    else:
-        st.info("Upload and process PDF documents to view extracted data.")
-
-async def process_web_urls(urls: List[str]) -> List[Document]:
-    """Process web URLs and return documents."""
-    web_docs = []
-    for url in urls:
-        try:
-            # Scrape the website table HTML
-            table_html = await scrape_website_table_html(url)
-            if table_html:
-                # Create a document from the scraped HTML
-                doc = Document(
-                    page_content=table_html,
-                    metadata={
-                        'source': f'web_{url}',
-                        'type': 'web_scrape'
-                    }
-                )
-                web_docs.append(doc)
-                logger.info(f"Successfully scraped data from {url}")
-            else:
-                logger.warning(f"No data found for {url}")
-        except Exception as e:
-            logger.error(f"Error processing URL {url}: {e}")
-    return web_docs
+# --- Display processed files status ---
+if st.session_state.processed_files:
+    st.info(f"Processed files: {', '.join(st.session_state.processed_files)}")
 
 # --- Main Area for Displaying Extraction Results ---
 st.header("2. Extracted Information")
