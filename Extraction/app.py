@@ -296,9 +296,14 @@ with col1:
     )
     
     # Update session state with new uploads only if there are new files
-    if uploaded_files and uploaded_files != st.session_state.uploaded_files:
-        st.session_state.uploaded_files = uploaded_files
-        st.success(f"Successfully uploaded {len(uploaded_files)} file(s)")
+    if uploaded_files:
+        # Compare file names to detect changes
+        current_files = set(f.name for f in st.session_state.uploaded_files)
+        new_files = set(f.name for f in uploaded_files)
+        
+        if current_files != new_files:
+            st.session_state.uploaded_files = uploaded_files
+            st.success(f"Successfully uploaded {len(uploaded_files)} file(s)")
     
     # Display currently uploaded files
     if st.session_state.uploaded_files:

@@ -37,7 +37,18 @@ from Extraction.app import main as extraction_main
 def initialize_session_state():
     """Initialize all session state variables"""
     if 'initialized' not in st.session_state:
+        # Store uploaded files if they exist
+        uploaded_files = st.session_state.get('uploaded_files', [])
+        processed_files = st.session_state.get('processed_files', [])
+        
+        # Clear session state
         st.session_state.clear()
+        
+        # Restore uploaded files
+        st.session_state.uploaded_files = uploaded_files
+        st.session_state.processed_files = processed_files
+        
+        # Initialize other state variables
         st.session_state.initialized = True
         st.session_state.current_view = 'home'
         
