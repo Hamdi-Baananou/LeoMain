@@ -278,6 +278,10 @@ if not config.GROQ_API_KEY:
 # --- Main Area for Document Upload and Processing ---
 st.header("1. Document Upload and Processing")
 
+# Initialize session state for uploaded files if not exists
+if 'uploaded_files' not in st.session_state:
+    st.session_state.uploaded_files = []
+
 # Create two columns for the upload section
 col1, col2 = st.columns([2, 1])
 
@@ -290,6 +294,17 @@ with col1:
         key="pdf_uploader",
         help="Upload PDF documents containing part information"
     )
+    
+    # Update session state with new uploads
+    if uploaded_files:
+        st.session_state.uploaded_files = uploaded_files
+        st.success(f"Successfully uploaded {len(uploaded_files)} file(s)")
+    
+    # Display currently uploaded files
+    if st.session_state.uploaded_files:
+        st.write("Currently uploaded files:")
+        for file in st.session_state.uploaded_files:
+            st.write(f"- {file.name}")
 
 with col2:
     st.subheader("Part Number")
@@ -304,7 +319,7 @@ with col2:
 st.markdown("---")
 process_button = st.button("🚀 Process Documents", key="process_button", type="primary", use_container_width=True)
 
-if process_button and uploaded_files:
+if process_button and st.session_state.uploaded_files:
     if not embedding_function or not llm:
         st.error("Core components (Embeddings or LLM) failed to initialize earlier. Cannot process documents.")
     else:
@@ -316,7 +331,7 @@ if process_button and uploaded_files:
         st.session_state.processed_files = []
         reset_evaluation_state() # Reset evaluation results AND extraction_performed flag
 
-        filenames = [f.name for f in uploaded_files]
+        filenames = [f.name for f in st.session_state.uploaded_files]
         logger.info(f"Starting processing for {len(filenames)} files: {', '.join(filenames)}")
         
         # Initialize processed_docs
@@ -339,7 +354,7 @@ if process_button and uploaded_files:
                 async def process_all():
                     # Start PDF processing
                     pdf_task = asyncio.create_task(
-                        process_uploaded_pdfs(uploaded_files, temp_dir)
+                        process_uploaded_pdfs(st.session_state.uploaded_files, temp_dir)
                     )
                     
                     # Start web processing if part number is provided
@@ -406,11 +421,11 @@ if process_button and uploaded_files:
                      logger.error(f"Failed during vector store setup: {e}", exc_info=True)
                      st.error(f"Error setting up vector store: {e}")
                      # reset_evaluation_state() called earlier is sufficient
-        elif not processed_docs and uploaded_files:
+        elif not processed_docs and st.session_state.uploaded_files:
             st.warning("No text could be extracted or processed from the uploaded PDFs.")
             # reset_evaluation_state() called earlier is sufficient
 
-elif process_button and not uploaded_files:
+elif process_button and not st.session_state.uploaded_files:
     st.warning("Please upload at least one PDF file before processing.")
 
 # --- Display processed files status ---
