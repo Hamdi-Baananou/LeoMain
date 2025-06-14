@@ -444,7 +444,7 @@ async def scrape_website_table_html(part_number: str) -> Optional[str]:
             headless=True,
             verbose=False,
             browser_type="chromium",
-            browser_args=[
+            args=[
                 "--no-sandbox",
                 "--disable-setuid-sandbox",
                 "--disable-dev-shm-usage",
