@@ -16,7 +16,3 @@ showErrorDetails = true
 
 [browser]
 gatherUsageStats = false
-
-[commands]
-# Install Playwright browsers after installing dependencies
-buildCommand = "chmod +x requirements.sh && ./requirements.sh"
