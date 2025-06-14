@@ -2,13 +2,15 @@
 import os
 from dotenv import load_dotenv
 # from chromadb.config import Settings as ChromaSettings # <-- REMOVE OR COMMENT OUT this import
+import streamlit as st
 
 # Load environment variables from .env file
 load_dotenv()
 
 # --- API Keys ---
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")  # Add Mistral API key
+# Try to get API keys from Streamlit secrets first, then fall back to environment variables
+GROQ_API_KEY = st.secrets.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY")
+MISTRAL_API_KEY = st.secrets.get("MISTRAL_API_KEY") or os.getenv("MISTRAL_API_KEY")
 
 # --- Model Configuration ---
 # Recommend using Langchain's Groq integration if possible
