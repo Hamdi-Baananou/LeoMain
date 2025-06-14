@@ -1,36 +1,26 @@
-# Core dependencies
-streamlit>=1.33.0
-langchain>=0.1.0
-langchain-community>=0.0.10
-langchain-groq>=0.0.1
-langchain-huggingface>=0.0.1
-pymupdf>=1.23.0
-transformers>=4.41.0,<5.0.0
-sentence-transformers==3.2.1
-chromadb>=0.4.0
-requests>=2.31.0
-python-dotenv>=1.0.1
-loguru>=0.7.0
-tiktoken>=0.5.0
-pysqlite3-binary>=0.5.0
+--extra-index-url https://pypi.org/simple
+
+streamlit
+langchain
+langchain-community
+langchain-groq
+langchain-huggingface
+pymupdf
+sentence-transformers
+chromadb
+requests
+python-dotenv
+loguru
+tiktoken
+pysqlite3-binary
 crawl4ai>=0.6.0
-beautifulsoup4>=4.12.0
+beautifulsoup4
 
-# ML and AI dependencies
-numpy>=1.26.0
-torch>=2.0.0
-torchvision==0.15.1
-torchaudio>=2.0.0
-accelerate==0.29.3
-protobuf==3.20.3
-
-# Vision and PDF processing
+numpy~=1.26.0
+torch~=2.2.0
+transformers~=4.40.0
+accelerate~=0.29.0
+protobuf<3.21
 mistralai>=0.0.7
 pdf2image>=1.16.3
-Pillow==10.4.0  # explicitly required by crawl4ai
-
-# Database and API
-supabase>=2.9.0
-huggingface-hub>=0.20.3
-nltk>=3.8.1
-groq>=0.11.0
+Pillow>=10.4.0,<11.0.0
