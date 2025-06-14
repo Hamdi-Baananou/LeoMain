@@ -1,1 +1,22 @@
-chmod +x requirements.sh && ./requirements.sh
+[server]
+headless = true
+enableCORS = false
+port = 8501
+
+[theme]
+base = "light"
+primaryColor = "#4CAF50"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F0F2F6"
+textColor = "#262730"
+font = "sans serif"
+
+[client]
+showErrorDetails = true
+
+[browser]
+gatherUsageStats = false
+
+[commands]
+# Install Playwright browsers after installing dependencies
+buildCommand = "chmod +x requirements.sh && ./requirements.sh"
