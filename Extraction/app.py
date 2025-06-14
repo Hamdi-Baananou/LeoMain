@@ -215,8 +215,8 @@ try:
          logger.success("Embedding function initialized successfully.")
 except Exception as e:
     logger.error(f"Failed to initialize embeddings: {e}", exc_info=True)
-    st.error(f"Fatal Error: Could not initialize embedding model. Error: {e}")
-    st.stop()
+    st.error(f"Warning: Could not initialize embedding model. Error: {e}")
+    # Don't stop the app, just continue with limited functionality
 
 try:
     logger.info("Attempting to initialize LLM...")
@@ -225,14 +225,13 @@ try:
         logger.success("LLM initialized successfully.")
 except Exception as e:
      logger.error(f"Failed to initialize LLM: {e}", exc_info=True)
-     st.error(f"Fatal Error: Could not initialize LLM. Error: {e}")
-     st.stop()
+     st.error(f"Warning: Could not initialize LLM. Error: {e}")
+     # Don't stop the app, just continue with limited functionality
 
 # --- Check if initializations failed ---
 if embedding_function is None or llm is None:
-     if not st.exception: # If st.stop() wasn't called already
-        st.error("Core components (Embeddings or LLM) failed to initialize. Cannot continue.")
-     st.stop()
+     st.warning("⚠️ Some core components failed to initialize. The app will run with limited functionality.")
+     # Don't stop the app, just continue with limited functionality
 
 # --- Load existing vector store or process uploads ---
 # Reset evaluation state when processing new files
@@ -271,9 +270,21 @@ st.title("📄 PDF Auto-Extraction with Groq") # Updated title
 st.markdown("Upload PDF documents, process them, and view automatically extracted information.") # Updated description
 st.markdown(f"**Model:** `{config.LLM_MODEL_NAME}` | **Embeddings:** `{config.EMBEDDING_MODEL_NAME}` | **Persistence:** `{'Enabled' if persistence_enabled else 'Disabled'}`")
 
-# Check for API Key (LLM init already does this, but maybe keep a visual warning)
+# Check for API Key and show a prominent warning
 if not config.GROQ_API_KEY:
-    st.warning("Groq API Key not found. Please set the GROQ_API_KEY environment variable.", icon="⚠️")
+    st.error("⚠️ GROQ_API_KEY not found! Please set the GROQ_API_KEY environment variable to use the full functionality of this app.", icon="⚠️")
+    st.info("You can set the API key by:")
+    st.markdown("""
+    1. Creating a `.env` file in the root directory with:
+       ```
+       GROQ_API_KEY=your_api_key_here
+       ```
+    2. Or setting it as an environment variable:
+       ```
+       set GROQ_API_KEY=your_api_key_here  # Windows
+       export GROQ_API_KEY=your_api_key_here  # Linux/Mac
+       ```
+    """)
 
 # --- Main Area for Document Upload and Processing ---
 st.header("1. Document Upload and Processing")
@@ -326,7 +337,7 @@ process_button = st.button("🚀 Process Documents", key="process_button", type=
 
 if process_button and st.session_state.uploaded_files:
     if not embedding_function or not llm:
-        st.error("Core components (Embeddings or LLM) failed to initialize earlier. Cannot process documents.")
+        st.error("Cannot process documents: Core components (Embeddings or LLM) failed to initialize. Please check the error messages above and ensure your API keys are set correctly.")
     else:
         # Reset state including evaluation and the extraction flag
         st.session_state.retriever = None
@@ -1117,8 +1128,8 @@ def main():
              logger.success("Embedding function initialized successfully.")
     except Exception as e:
         logger.error(f"Failed to initialize embeddings: {e}", exc_info=True)
-        st.error(f"Fatal Error: Could not initialize embedding model. Error: {e}")
-        st.stop()
+        st.error(f"Warning: Could not initialize embedding model. Error: {e}")
+        # Don't stop the app, just continue with limited functionality
 
     try:
         logger.info("Attempting to initialize LLM...")
@@ -1127,14 +1138,13 @@ def main():
             logger.success("LLM initialized successfully.")
     except Exception as e:
          logger.error(f"Failed to initialize LLM: {e}", exc_info=True)
-         st.error(f"Fatal Error: Could not initialize LLM. Error: {e}")
-         st.stop()
+         st.error(f"Warning: Could not initialize LLM. Error: {e}")
+         # Don't stop the app, just continue with limited functionality
 
     # --- Check if initializations failed ---
     if embedding_function is None or llm is None:
-         if not st.exception: # If st.stop() wasn't called already
-            st.error("Core components (Embeddings or LLM) failed to initialize. Cannot continue.")
-         st.stop()
+         st.warning("⚠️ Some core components failed to initialize. The app will run with limited functionality.")
+         # Don't stop the app, just continue with limited functionality
 
     # --- Load existing vector store or process uploads ---
     # Reset evaluation state when processing new files
@@ -1173,9 +1183,21 @@ def main():
     st.markdown("Upload PDF documents, process them, and view automatically extracted information.") # Updated description
     st.markdown(f"**Model:** `{config.LLM_MODEL_NAME}` | **Embeddings:** `{config.EMBEDDING_MODEL_NAME}` | **Persistence:** `{'Enabled' if persistence_enabled else 'Disabled'}`")
 
-    # Check for API Key (LLM init already does this, but maybe keep a visual warning)
+    # Check for API Key and show a prominent warning
     if not config.GROQ_API_KEY:
-        st.warning("Groq API Key not found. Please set the GROQ_API_KEY environment variable.", icon="⚠️")
+        st.error("⚠️ GROQ_API_KEY not found! Please set the GROQ_API_KEY environment variable to use the full functionality of this app.", icon="⚠️")
+        st.info("You can set the API key by:")
+        st.markdown("""
+        1. Creating a `.env` file in the root directory with:
+           ```
+           GROQ_API_KEY=your_api_key_here
+           ```
+        2. Or setting it as an environment variable:
+           ```
+           set GROQ_API_KEY=your_api_key_here  # Windows
+           export GROQ_API_KEY=your_api_key_here  # Linux/Mac
+           ```
+        """)
 
     # ... rest of the main function code ...
 

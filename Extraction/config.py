@@ -62,10 +62,10 @@ ATTRIBUTE_CHUNK_SIZE = int(os.getenv("ATTRIBUTE_CHUNK_SIZE", 1000))  # Chunk siz
 # --- Validation ---
 if not GROQ_API_KEY:
     # In a real app, might raise specific error or handle differently
-    print("Warning: GROQ_API_KEY not found in environment variables.")
+    print("Warning: GROQ_API_KEY not found in environment variables or Streamlit secrets.")
 
 if not MISTRAL_API_KEY:
-    print("Warning: MISTRAL_API_KEY not found in environment variables.")
+    print("Warning: MISTRAL_API_KEY not found in environment variables or Streamlit secrets.")
 
 # --- Simplified CHROMA_SETTINGS attribute for app.py check ---
 # Define a simple object or dictionary that app.py can check for is_persistent
