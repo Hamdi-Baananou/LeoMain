@@ -1,46 +1,38 @@
-# Build dependencies
-setuptools>=68.0.0
-wheel>=0.40.0
+--extra-index-url https://download.pytorch.org/whl/cpu
 
-# Core dependencies
+# Core frameworks
 streamlit>=1.33.0
 python-dotenv>=1.0.1
+requests
+loguru
 
-# Database and API
-supabase>=2.9.0
-groq>=0.11.0
-huggingface-hub>=0.20.3
-
-# LangChain and related
-langchain>=0.1.0
-langchain-core>=0.1.7
-langchain-community>=0.0.10
-langchain-groq>=0.0.1
-langchain-huggingface>=0.0.1
-
-# Document processing
-pymupdf>=1.23.0
-pdf2image>=1.16.3
-Pillow>=10.0.0
-
-# Vector store and embeddings
+# LLM / RAG related
+langchain
+langchain-community
+langchain-groq
+langchain-huggingface
 sentence-transformers==3.2.1
-chromadb>=0.4.0
-tiktoken>=0.5.0
-pysqlite3-binary>=0.5.0
-
-# Web scraping
-beautifulsoup4>=4.12.0
-requests>=2.31.0
-crawl4ai>=0.1.0
-
-# ML and AI dependencies
-numpy>=1.24.0,<1.25.0
-transformers>=4.41.0,<5.0.0
-accelerate>=0.29.0
+chromadb
+tiktoken
+huggingface-hub>=0.20.3
+transformers~=4.40.0
+accelerate~=0.29.0
 protobuf<3.21
 
-# Additional utilities
+# Torch CPU stack
+torch==2.2.0+cpu
+torchvision>=0.15.0
+torchaudio>=2.0.0
+
+# Data processing
 nltk>=3.8.1
-loguru>=0.7.0
+pymupdf
+crawl4ai
+beautifulsoup4
+pysqlite3-binary
+numpy~=1.26.0
+
+# Vision + PDF
 mistralai>=0.0.7
+pdf2image>=1.16.3
+Pillow>=10.0.0
