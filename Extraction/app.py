@@ -8,12 +8,12 @@ sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 # app.py
 import streamlit as st
 
-# --- Streamlit Page Configuration ---
-st.set_page_config(
-    page_title="PDF Auto-Extraction with Groq", # Updated title
-    page_icon="📄",
-    layout="wide"
-)
+# Remove page configuration from here since it's imported
+# st.set_page_config(
+#     page_title="PDF Auto-Extraction with Groq",
+#     page_icon="📄",
+#     layout="wide"
+# )
 
 import os
 import time
