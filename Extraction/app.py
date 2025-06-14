@@ -295,8 +295,8 @@ with col1:
         help="Upload PDF documents containing part information"
     )
     
-    # Update session state with new uploads
-    if uploaded_files:
+    # Update session state with new uploads only if there are new files
+    if uploaded_files and uploaded_files != st.session_state.uploaded_files:
         st.session_state.uploaded_files = uploaded_files
         st.success(f"Successfully uploaded {len(uploaded_files)} file(s)")
     
