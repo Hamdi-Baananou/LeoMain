@@ -5,6 +5,7 @@ streamlit>=1.33.0
 python-dotenv>=1.0.1
 requests
 loguru
+supabase>=2.3.0
 
 # LLM / RAG related
 langchain
