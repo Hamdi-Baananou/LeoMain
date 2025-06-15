@@ -34,7 +34,7 @@ from llm_interface import (
     create_pdf_extraction_chain, # Use PDF chain func
     create_web_extraction_chain, # Use Web chain func
     _invoke_chain_and_process, # Use the helper directly
-    scrape_website_table_html
+    scrape_website_table_html # Import scrape_website_table_html at top level
 )
 # Import the prompts
 from extraction_prompts import (
@@ -470,8 +470,6 @@ def main():
                     with st.spinner("Attempting to scrape data from supplier websites..."):
                         scrape_start_time = time.time()
                         try:
-                            # Ensure scrape_website_table_html is imported from llm_interface
-                            from llm_interface import scrape_website_table_html
                             scraped_table_html = loop.run_until_complete(scrape_website_table_html(part_number))
                             scrape_time = time.time() - scrape_start_time
                             if scraped_table_html:
@@ -1133,6 +1131,7 @@ def main():
                 else:
                     with st.spinner("Scraping web data..."):
                         try:
+                            # Use the imported function directly
                             scraped_table_html = await scrape_website_table_html(part_number)
                             if scraped_table_html:
                                 st.session_state.scraped_table_html_cache = scraped_table_html
