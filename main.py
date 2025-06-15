@@ -37,30 +37,36 @@ from Extraction.app import main as extraction_main
 def initialize_session_state():
     """Initialize all session state variables"""
     if 'initialized' not in st.session_state:
-        # Store uploaded files if they exist
-        uploaded_files = st.session_state.get('uploaded_files', [])
-        processed_files = st.session_state.get('processed_files', [])
+        # Store all existing state variables
+        existing_state = {
+            'uploaded_files': st.session_state.get('uploaded_files', []),
+            'processed_files': st.session_state.get('processed_files', []),
+            'retriever': st.session_state.get('retriever'),
+            'pdf_chain': st.session_state.get('pdf_chain'),
+            'web_chain': st.session_state.get('web_chain'),
+            'evaluation_results': st.session_state.get('evaluation_results', []),
+            'evaluation_metrics': st.session_state.get('evaluation_metrics'),
+            'extraction_performed': st.session_state.get('extraction_performed', False),
+            'scraped_table_html_cache': st.session_state.get('scraped_table_html_cache'),
+            'current_part_number_scraped': st.session_state.get('current_part_number_scraped'),
+            'pdf_processing_task': st.session_state.get('pdf_processing_task'),
+            'pdf_processing_complete': st.session_state.get('pdf_processing_complete', False),
+            'pdf_processing_results': st.session_state.get('pdf_processing_results'),
+            'chatbot_messages': st.session_state.get('chatbot_messages', [])
+        }
         
         # Clear session state
         st.session_state.clear()
         
-        # Restore uploaded files
-        st.session_state.uploaded_files = uploaded_files
-        st.session_state.processed_files = processed_files
+        # Restore all state variables
+        for key, value in existing_state.items():
+            st.session_state[key] = value
         
-        # Initialize other state variables
-        st.session_state.initialized = True
-        st.session_state.current_view = 'home'
-        
-        # Initialize chatbot-specific state
-        if 'chatbot_messages' not in st.session_state:
-            st.session_state.chatbot_messages = []
-            
-        # Initialize extraction-specific state
-        if 'extraction_files' not in st.session_state:
-            st.session_state.extraction_files = []
-        if 'extraction_results' not in st.session_state:
-            st.session_state.extraction_results = {}
+        # Initialize any missing state variables
+        if 'initialized' not in st.session_state:
+            st.session_state.initialized = True
+        if 'current_view' not in st.session_state:
+            st.session_state.current_view = 'home'
 
 def render_sidebar():
     """Render the navigation sidebar"""

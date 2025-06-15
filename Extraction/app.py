@@ -153,39 +153,26 @@ install_playwright_browsers()
 # Errors will still be shown via st.error where used explicitly
 
 # --- Application State ---
-# Use Streamlit's session state to hold persistent data across reruns
-if 'retriever' not in st.session_state:
-    st.session_state.retriever = None
-# Add states for BOTH chains
-if 'pdf_chain' not in st.session_state:
-    st.session_state.pdf_chain = None
-if 'web_chain' not in st.session_state:
-    st.session_state.web_chain = None
-# Remove old single chain state
-# if 'extraction_chain' not in st.session_state:
-#     st.session_state.extraction_chain = None
-if 'processed_files' not in st.session_state:
-    st.session_state.processed_files = [] # Store names of processed files
-# Add state for evaluation
-if 'evaluation_results' not in st.session_state:
-    st.session_state.evaluation_results = [] # List to store detailed results per field
-if 'evaluation_metrics' not in st.session_state:
-    st.session_state.evaluation_metrics = None # Dict to store summary metrics
-# Add flag to track if extraction has run for the current data
-if 'extraction_performed' not in st.session_state:
-    st.session_state.extraction_performed = False
-if 'scraped_table_html_cache' not in st.session_state:
-    st.session_state.scraped_table_html_cache = None # Cache for scraped HTML for the current part number
-if 'current_part_number_scraped' not in st.session_state:
-    st.session_state.current_part_number_scraped = None # Track which part number was last scraped for
+# Only initialize state variables if they don't exist
+state_vars = {
+    'retriever': None,
+    'pdf_chain': None,
+    'web_chain': None,
+    'processed_files': [],
+    'evaluation_results': [],
+    'evaluation_metrics': None,
+    'extraction_performed': False,
+    'scraped_table_html_cache': None,
+    'current_part_number_scraped': None,
+    'pdf_processing_task': None,
+    'pdf_processing_complete': False,
+    'pdf_processing_results': None
+}
 
-# Add new session state for background tasks
-if 'pdf_processing_task' not in st.session_state:
-    st.session_state.pdf_processing_task = None
-if 'pdf_processing_complete' not in st.session_state:
-    st.session_state.pdf_processing_complete = False
-if 'pdf_processing_results' not in st.session_state:
-    st.session_state.pdf_processing_results = None
+# Initialize only missing state variables
+for var, default_value in state_vars.items():
+    if var not in st.session_state:
+        st.session_state[var] = default_value
 
 # --- Global Variables / Initialization ---
 # Initialize embeddings (this is relatively heavy, do it once)
@@ -306,6 +293,8 @@ st.header("1. Document Upload and Processing")
 # Initialize session state for uploaded files if not exists
 if 'uploaded_files' not in st.session_state:
     st.session_state.uploaded_files = []
+if 'uploaded_files_dict' not in st.session_state:
+    st.session_state.uploaded_files_dict = {}
 
 # Create two columns for the upload section
 col1, col2 = st.columns([2, 1])
@@ -320,15 +309,33 @@ with col1:
         help="Upload PDF documents containing part information"
     )
     
-    # Update session state with new uploads only if there are new files
+    # Update session state with new uploads
     if uploaded_files:
-        # Compare file names to detect changes
-        current_files = set(f.name for f in st.session_state.uploaded_files)
-        new_files = set(f.name for f in uploaded_files)
+        # Create a dictionary of current files by name
+        current_files_dict = {f.name: f for f in st.session_state.uploaded_files}
         
-        if current_files != new_files:
-            st.session_state.uploaded_files = uploaded_files
-            st.success(f"Successfully uploaded {len(uploaded_files)} file(s)")
+        # Process new uploads
+        new_files = []
+        for file in uploaded_files:
+            if file.name not in current_files_dict:
+                # New file
+                new_files.append(file)
+                current_files_dict[file.name] = file
+            else:
+                # File exists, check if content changed
+                existing_file = current_files_dict[file.name]
+                if file.getvalue() != existing_file.getvalue():
+                    # Content changed, update
+                    new_files.append(file)
+                    current_files_dict[file.name] = file
+                else:
+                    # Same content, keep existing
+                    new_files.append(existing_file)
+        
+        # Update session state
+        st.session_state.uploaded_files = new_files
+        if new_files:
+            st.success(f"Successfully processed {len(new_files)} file(s)")
     
     # Display currently uploaded files
     if st.session_state.uploaded_files:
@@ -1130,39 +1137,26 @@ def main():
     # Errors will still be shown via st.error where used explicitly
 
     # --- Application State ---
-    # Use Streamlit's session state to hold persistent data across reruns
-    if 'retriever' not in st.session_state:
-        st.session_state.retriever = None
-    # Add states for BOTH chains
-    if 'pdf_chain' not in st.session_state:
-        st.session_state.pdf_chain = None
-    if 'web_chain' not in st.session_state:
-        st.session_state.web_chain = None
-    # Remove old single chain state
-    # if 'extraction_chain' not in st.session_state:
-    #     st.session_state.extraction_chain = None
-    if 'processed_files' not in st.session_state:
-        st.session_state.processed_files = [] # Store names of processed files
-    # Add state for evaluation
-    if 'evaluation_results' not in st.session_state:
-        st.session_state.evaluation_results = [] # List to store detailed results per field
-    if 'evaluation_metrics' not in st.session_state:
-        st.session_state.evaluation_metrics = None # Dict to store summary metrics
-    # Add flag to track if extraction has run for the current data
-    if 'extraction_performed' not in st.session_state:
-        st.session_state.extraction_performed = False
-    if 'scraped_table_html_cache' not in st.session_state:
-        st.session_state.scraped_table_html_cache = None # Cache for scraped HTML for the current part number
-    if 'current_part_number_scraped' not in st.session_state:
-        st.session_state.current_part_number_scraped = None # Track which part number was last scraped for
-
-    # Add new session state for background tasks
-    if 'pdf_processing_task' not in st.session_state:
-        st.session_state.pdf_processing_task = None
-    if 'pdf_processing_complete' not in st.session_state:
-        st.session_state.pdf_processing_complete = False
-    if 'pdf_processing_results' not in st.session_state:
-        st.session_state.pdf_processing_results = None
+    # Only initialize state variables if they don't exist
+    state_vars = {
+        'retriever': None,
+        'pdf_chain': None,
+        'web_chain': None,
+        'processed_files': [],
+        'evaluation_results': [],
+        'evaluation_metrics': None,
+        'extraction_performed': False,
+        'scraped_table_html_cache': None,
+        'current_part_number_scraped': None,
+        'pdf_processing_task': None,
+        'pdf_processing_complete': False,
+        'pdf_processing_results': None
+    }
+    
+    # Initialize only missing state variables
+    for var, default_value in state_vars.items():
+        if var not in st.session_state:
+            st.session_state[var] = default_value
 
     # --- Global Variables / Initialization ---
     # Initialize embeddings (this is relatively heavy, do it once)
