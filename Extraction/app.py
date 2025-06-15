@@ -1357,42 +1357,50 @@ def main():
     try:
         logger.info("Starting extraction app initialization...")
         
-        # Install Playwright browsers on startup
-        logger.info("Installing Playwright browsers...")
-        install_playwright_browsers()
-        logger.info("Playwright installation complete")
+        # Initialize view state if not already done
+        if 'extraction_view_initialized' not in st.session_state:
+            st.session_state.extraction_view_initialized = False
 
-        # Initialize LLM if not already in session state
-        if 'llm' not in st.session_state:
-            try:
-                logger.info("Initializing LLM...")
-                st.session_state.llm = initialize_llm_cached()
-                if st.session_state.llm:
-                    logger.success("LLM initialized successfully")
-                else:
-                    raise Exception("LLM initialization returned None")
-            except Exception as e:
-                logger.error(f"Failed to initialize LLM: {e}", exc_info=True)
-                st.error(f"Fatal Error: Could not initialize LLM. Error: {e}")
-                st.stop()
+        if not st.session_state.extraction_view_initialized:
+            # Install Playwright browsers only if not already done
+            if 'playwright_installed' not in st.session_state:
+                logger.info("Installing Playwright browsers...")
+                install_playwright_browsers()
+                st.session_state.playwright_installed = True
+                logger.info("Playwright installation complete")
 
-        # Initialize embeddings if not already in session state
-        if 'embedding_function' not in st.session_state:
-            try:
-                logger.info("Initializing embeddings...")
-                st.session_state.embedding_function = initialize_embeddings()
-                if st.session_state.embedding_function:
-                    logger.success("Embeddings initialized successfully")
-                else:
-                    raise Exception("Embeddings initialization returned None")
-            except Exception as e:
-                logger.error(f"Failed to initialize embeddings: {e}", exc_info=True)
-                st.error(f"Fatal Error: Could not initialize embeddings. Error: {e}")
-                st.stop()
+            # Initialize LLM if not already in session state
+            if 'llm' not in st.session_state:
+                try:
+                    logger.info("Initializing LLM...")
+                    st.session_state.llm = initialize_llm_cached()
+                    if st.session_state.llm:
+                        logger.success("LLM initialized successfully")
+                    else:
+                        raise Exception("LLM initialization returned None")
+                except Exception as e:
+                    logger.error(f"Failed to initialize LLM: {e}", exc_info=True)
+                    st.error(f"Fatal Error: Could not initialize LLM. Error: {e}")
+                    st.stop()
 
-        # Set up the main UI
-        st.title("Document Extraction")
-        st.markdown("Upload your documents or enter a part number to extract information.")
+            # Initialize embeddings if not already in session state
+            if 'embedding_function' not in st.session_state:
+                try:
+                    logger.info("Initializing embeddings...")
+                    st.session_state.embedding_function = initialize_embeddings()
+                    if st.session_state.embedding_function:
+                        logger.success("Embeddings initialized successfully")
+                    else:
+                        raise Exception("Embeddings initialization returned None")
+                except Exception as e:
+                    logger.error(f"Failed to initialize embeddings: {e}", exc_info=True)
+                    st.error(f"Fatal Error: Could not initialize embeddings. Error: {e}")
+                    st.stop()
+
+            # Set up the main UI
+            st.title("Document Extraction")
+            st.markdown("Upload your documents or enter a part number to extract information.")
+            st.session_state.extraction_view_initialized = True
 
         # File upload section
         uploaded_files = st.file_uploader("Upload PDF files", type=['pdf'], accept_multiple_files=True)
@@ -1451,8 +1459,20 @@ def main():
                 if not st.session_state.extraction_performed:
                     logger.info("Starting async processing...")
                     try:
-                        logger.info("Initializing Mistral processing...")
-                        asyncio.run(process_attributes_main())
+                        # Get the current event loop or create a new one
+                        try:
+                            loop = asyncio.get_event_loop()
+                        except RuntimeError:
+                            loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(loop)
+
+                        # Run the async processing
+                        if loop.is_running():
+                            # If loop is running, create a new task
+                            loop.create_task(process_attributes_main())
+                        else:
+                            # If loop is not running, run it
+                            loop.run_until_complete(process_attributes_main())
                         logger.info("Async processing complete")
                     except Exception as e:
                         logger.error(f"Error during async processing: {str(e)}", exc_info=True)
