@@ -1079,12 +1079,33 @@ def check_health_check_timeout():
     elapsed = time.time() - st.session_state.last_health_check
     return elapsed > (config.HEALTH_CHECK_TIMEOUT - config.HEALTH_CHECK_GRACE_PERIOD)
 
+async def _invoke_chain_and_process(chain, input_data, prompt_name):
+    """Invoke the chain and process the results with detailed logging."""
+    logger.info(f"Starting extraction for {prompt_name}")
+    logger.debug(f"Input data for {prompt_name}: {input_data}")
+    
+    try:
+        start_time = time.time()
+        logger.info(f"Calling Mistral API for {prompt_name}")
+        result = await chain.ainvoke(input_data)
+        processing_time = time.time() - start_time
+        logger.info(f"Mistral API response received for {prompt_name} in {processing_time:.2f} seconds")
+        logger.debug(f"Raw Mistral response for {prompt_name}: {result}")
+        return result
+    except Exception as e:
+        logger.error(f"Error in Mistral extraction for {prompt_name}: {str(e)}", exc_info=True)
+        raise
+
 async def process_attribute_batch(attributes_batch, chain, is_web=False):
-    """Process a batch of attributes in parallel."""
+    """Process a batch of attributes in parallel with detailed logging."""
+    logger.info(f"Starting batch processing for {'web' if is_web else 'PDF'} data")
+    logger.debug(f"Number of attributes in batch: {len(attributes_batch)}")
+    
     tasks = []
     for prompt_name, instructions in attributes_batch.items():
         attribute_key = prompt_name
         instruction = instructions["web" if is_web else "pdf"]
+        logger.info(f"Creating task for {prompt_name} using {'web' if is_web else 'PDF'} instructions")
         
         input_data = {
             "cleaned_web_data" if is_web else "extraction_instructions": instruction,
@@ -1100,28 +1121,37 @@ async def process_attribute_batch(attributes_batch, chain, is_web=False):
     results = {}
     for prompt_name, task in tasks:
         try:
+            logger.info(f"Waiting for result from {prompt_name}")
             result = await task
             results[prompt_name] = result
-            update_health_check()  # Update health check after each successful processing
+            logger.info(f"Successfully processed {prompt_name}")
+            update_health_check()
         except Exception as e:
-            logger.error(f"Error processing {prompt_name}: {e}")
+            logger.error(f"Error processing {prompt_name}: {e}", exc_info=True)
             results[prompt_name] = f'{{"error": "Exception during processing: {e}"}}'
     
+    logger.info(f"Batch processing completed. Processed {len(results)} attributes")
     return results
 
-# Replace the existing attribute processing logic with this new implementation
 async def process_all_attributes(prompts_to_run, web_chain, pdf_chain, scraped_table_html):
-    """Process all attributes with parallel processing and health check handling."""
+    """Process all attributes with detailed logging."""
+    logger.info("Starting attribute processing pipeline")
+    logger.debug(f"Number of prompts to run: {len(prompts_to_run)}")
+    
     intermediate_results = {}
     pdf_fallback_needed = []
     
     # Process web data if available
     if scraped_table_html:
+        logger.info("Web data available, starting web processing")
         # Split attributes into batches for parallel processing
         attribute_batches = [dict(list(prompts_to_run.items())[i:i + config.MAX_PARALLEL_ATTRIBUTES]) 
                            for i in range(0, len(prompts_to_run), config.MAX_PARALLEL_ATTRIBUTES)]
         
-        for batch in attribute_batches:
+        logger.info(f"Split into {len(attribute_batches)} batches for processing")
+        
+        for batch_idx, batch in enumerate(attribute_batches):
+            logger.info(f"Processing batch {batch_idx + 1}/{len(attribute_batches)}")
             if check_health_check_timeout():
                 logger.warning("Approaching health check timeout, switching to PDF processing")
                 pdf_fallback_needed.extend(batch.keys())
@@ -1130,34 +1160,41 @@ async def process_all_attributes(prompts_to_run, web_chain, pdf_chain, scraped_t
             batch_results = await process_attribute_batch(batch, web_chain, is_web=True)
             
             for prompt_name, result in batch_results.items():
-                # Process result and determine if PDF fallback is needed
                 try:
                     parsed_json = json.loads(result.strip())
                     if isinstance(parsed_json, dict):
                         if prompt_name in parsed_json:
                             value = str(parsed_json[prompt_name])
                             if "not found" in value.lower() or value.strip() == "":
+                                logger.info(f"Web extraction failed for {prompt_name}, adding to PDF fallback")
                                 pdf_fallback_needed.append(prompt_name)
                         elif "error" in parsed_json:
+                            logger.warning(f"Error in web extraction for {prompt_name}: {parsed_json['error']}")
                             pdf_fallback_needed.append(prompt_name)
                 except:
+                    logger.warning(f"Failed to parse result for {prompt_name}, adding to PDF fallback")
                     pdf_fallback_needed.append(prompt_name)
                 
                 intermediate_results[prompt_name] = {
                     'Prompt Name': prompt_name,
                     'Extracted Value': result,
                     'Source': 'Web',
-                    'Latency (s)': 0.0  # Will be updated with actual latency
+                    'Latency (s)': 0.0
                 }
     else:
+        logger.info("No web data available, all attributes will be processed with PDF")
         pdf_fallback_needed = list(prompts_to_run.keys())
     
     # Process PDF fallback if needed
     if pdf_fallback_needed:
+        logger.info(f"Starting PDF fallback processing for {len(pdf_fallback_needed)} attributes")
         pdf_batches = [pdf_fallback_needed[i:i + config.MAX_PARALLEL_ATTRIBUTES] 
                       for i in range(0, len(pdf_fallback_needed), config.MAX_PARALLEL_ATTRIBUTES)]
         
-        for batch in pdf_batches:
+        logger.info(f"Split PDF processing into {len(pdf_batches)} batches")
+        
+        for batch_idx, batch in enumerate(pdf_batches):
+            logger.info(f"Processing PDF batch {batch_idx + 1}/{len(pdf_batches)}")
             if check_health_check_timeout():
                 logger.error("Health check timeout reached during PDF processing")
                 break
@@ -1179,6 +1216,7 @@ async def process_all_attributes(prompts_to_run, web_chain, pdf_chain, scraped_t
                         'Latency (s)': 0.0
                     }
     
+    logger.info("Attribute processing pipeline completed")
     return intermediate_results
 
 # Update the main processing section to use the new parallel processing
