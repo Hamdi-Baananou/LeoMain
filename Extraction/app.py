@@ -1376,6 +1376,20 @@ def main():
                 st.error(f"Fatal Error: Could not initialize LLM. Error: {e}")
                 st.stop()
 
+        # Initialize embeddings if not already in session state
+        if 'embedding_function' not in st.session_state:
+            try:
+                logger.info("Initializing embeddings...")
+                st.session_state.embedding_function = initialize_embeddings()
+                if st.session_state.embedding_function:
+                    logger.success("Embeddings initialized successfully")
+                else:
+                    raise Exception("Embeddings initialization returned None")
+            except Exception as e:
+                logger.error(f"Failed to initialize embeddings: {e}", exc_info=True)
+                st.error(f"Fatal Error: Could not initialize embeddings. Error: {e}")
+                st.stop()
+
         # Set up the main UI
         st.title("Document Extraction")
         st.markdown("Upload your documents or enter a part number to extract information.")
@@ -1398,8 +1412,22 @@ def main():
                 logger.debug(f"Number of files to process: {len(uploaded_files) if uploaded_files else 0}")
                 logger.debug(f"Part number provided: {part_number if part_number else 'None'}")
                 
+                # Initialize retriever if not already in session state
+                if 'retriever' not in st.session_state:
+                    try:
+                        logger.info("Initializing retriever...")
+                        st.session_state.retriever = load_existing_vector_store(st.session_state.embedding_function)
+                        if st.session_state.retriever:
+                            logger.success("Retriever initialized successfully")
+                        else:
+                            logger.warning("No existing retriever found, will be created after document processing")
+                    except Exception as e:
+                        logger.error(f"Failed to initialize retriever: {e}", exc_info=True)
+                        st.error("Failed to initialize retriever")
+                        return
+
                 # Check if chains are initialized
-                if not st.session_state.pdf_chain:
+                if not st.session_state.pdf_chain and st.session_state.retriever:
                     logger.info("PDF chain not initialized, creating now...")
                     try:
                         st.session_state.pdf_chain = create_pdf_extraction_chain(st.session_state.retriever, st.session_state.llm)
