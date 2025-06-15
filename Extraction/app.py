@@ -317,7 +317,7 @@ def main():
                             web_task = None
                             if st.session_state.get("part_number_input"):
                                 web_task = asyncio.create_task(
-                                    process_web_urls([st.session_state.get("part_number_input")])
+                                    scrape_website_table_html(st.session_state.get("part_number_input"))
                                 )
                             
                             # Wait for both tasks to complete
