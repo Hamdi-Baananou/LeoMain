@@ -20,6 +20,13 @@ from langchain.docstore.document import Document
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 
+# --- Streamlit Page Configuration ---
+st.set_page_config(
+    page_title="PDF Auto-Extraction with Groq", # Updated title
+    page_icon="📄",
+    layout="wide"
+)
+
 # --- Install Playwright browsers needed by crawl4ai --- 
 # This should run on startup in the Streamlit Cloud environment
 def install_playwright_browsers():
@@ -162,13 +169,6 @@ async def process_web_urls(urls: List[str]) -> List[Document]:
         except Exception as e:
             logger.error(f"Error processing URL {url}: {e}")
     return web_docs
-
-# --- Streamlit Page Configuration ---
-st.set_page_config(
-    page_title="PDF Auto-Extraction with Groq", # Updated title
-    page_icon="📄",
-    layout="wide"
-)
 
 # --- Logging Configuration ---
 # Configure Loguru logger (can be more flexible than standard logging)
