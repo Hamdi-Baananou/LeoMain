@@ -1,5 +1,4 @@
 # --- Force python to use pysqlite3 based on chromadb docs ---
-# This override MUST happen before any other imports that might import sqlite3
 __import__('pysqlite3')
 import sys
 sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
@@ -215,8 +214,8 @@ try:
          logger.success("Embedding function initialized successfully.")
 except Exception as e:
     logger.error(f"Failed to initialize embeddings: {e}", exc_info=True)
-    st.error(f"Warning: Could not initialize embedding model. Error: {e}")
-    # Don't stop the app, just continue with limited functionality
+    st.error(f"Fatal Error: Could not initialize embedding model. Error: {e}")
+    st.stop()
 
 try:
     logger.info("Attempting to initialize LLM...")
@@ -225,13 +224,28 @@ try:
         logger.success("LLM initialized successfully.")
 except Exception as e:
      logger.error(f"Failed to initialize LLM: {e}", exc_info=True)
-     st.error(f"Warning: Could not initialize LLM. Error: {e}")
-     # Don't stop the app, just continue with limited functionality
+     st.error(f"Fatal Error: Could not initialize LLM. Error: {e}")
+     st.stop()
 
 # --- Check if initializations failed ---
 if embedding_function is None or llm is None:
-     st.warning("⚠️ Some core components failed to initialize. The app will run with limited functionality.")
-     # Don't stop the app, just continue with limited functionality
+     if not st.exception:
+        st.error("Core components (Embeddings or LLM) failed to initialize. Cannot continue.")
+     st.stop()
+
+# --- Health Check Functions ---
+def update_health_check():
+    """Update the health check timestamp."""
+    st.session_state.last_health_check = time.time()
+
+def check_health_check_timeout():
+    """Check if we're approaching the health check timeout."""
+    if 'last_health_check' not in st.session_state:
+        st.session_state.last_health_check = time.time()
+        return False
+    
+    elapsed = time.time() - st.session_state.last_health_check
+    return elapsed > (config.HEALTH_CHECK_TIMEOUT - config.HEALTH_CHECK_GRACE_PERIOD)
 
 # --- Load existing vector store or process uploads ---
 # Reset evaluation state when processing new files
@@ -368,6 +382,7 @@ if process_button and st.session_state.uploaded_files:
                 
                 # Start both PDF and web processing in parallel
                 async def process_all():
+                    """Process PDFs and web data in parallel."""
                     # Start PDF processing
                     pdf_task = asyncio.create_task(
                         process_uploaded_pdfs(st.session_state.uploaded_files, temp_dir)
@@ -1059,6 +1074,54 @@ else:
     elif (st.session_state.pdf_chain or st.session_state.web_chain) and st.session_state.extraction_performed:
         st.warning("Extraction process completed, but no valid results were generated for some fields. Check logs or raw outputs if available.")
 
+async def process_attributes_main():
+    """Main async function for processing attributes."""
+    if (st.session_state.pdf_chain and st.session_state.web_chain) and not st.session_state.extraction_performed:
+        # Initialize health check
+        update_health_check()
+        
+        # Get part number and scrape web data
+        part_number = st.session_state.get("part_number_input", "").strip()
+        scraped_table_html = None
+        
+        if part_number:
+            if (st.session_state.current_part_number_scraped == part_number and 
+                st.session_state.scraped_table_html_cache is not None):
+                scraped_table_html = st.session_state.scraped_table_html_cache
+            else:
+                with st.spinner("Scraping web data..."):
+                    try:
+                        scraped_table_html = await scrape_website_table_html(part_number)
+                        if scraped_table_html:
+                            st.session_state.scraped_table_html_cache = scraped_table_html
+                            st.session_state.current_part_number_scraped = part_number
+                    except Exception as e:
+                        logger.error(f"Web scraping error: {e}")
+        
+        # Process all attributes
+        with st.spinner("Processing attributes..."):
+            try:
+                intermediate_results = await process_all_attributes(
+                    prompts_to_run,
+                    st.session_state.web_chain,
+                    st.session_state.pdf_chain,
+                    scraped_table_html
+                )
+                
+                # Convert results to list and update session state
+                extraction_results_list = list(intermediate_results.values())
+                st.session_state.evaluation_results = extraction_results_list
+                st.session_state.extraction_performed = True
+                
+                st.success("Extraction complete!")
+            except Exception as e:
+                logger.error(f"Error during attribute processing: {e}")
+                st.error("Error during processing. Please try again.")
+
+# Call the async function
+if (st.session_state.pdf_chain and st.session_state.web_chain) and not st.session_state.extraction_performed:
+    asyncio.run(process_attributes_main())
+
 def main():
     # --- Logging Configuration ---
     # Configure Loguru logger (can be more flexible than standard logging)
@@ -1128,8 +1191,8 @@ def main():
              logger.success("Embedding function initialized successfully.")
     except Exception as e:
         logger.error(f"Failed to initialize embeddings: {e}", exc_info=True)
-        st.error(f"Warning: Could not initialize embedding model. Error: {e}")
-        # Don't stop the app, just continue with limited functionality
+        st.error(f"Fatal Error: Could not initialize embedding model. Error: {e}")
+        st.stop()
 
     try:
         logger.info("Attempting to initialize LLM...")
@@ -1138,13 +1201,28 @@ def main():
             logger.success("LLM initialized successfully.")
     except Exception as e:
          logger.error(f"Failed to initialize LLM: {e}", exc_info=True)
-         st.error(f"Warning: Could not initialize LLM. Error: {e}")
-         # Don't stop the app, just continue with limited functionality
+         st.error(f"Fatal Error: Could not initialize LLM. Error: {e}")
+         st.stop()
 
     # --- Check if initializations failed ---
     if embedding_function is None or llm is None:
-         st.warning("⚠️ Some core components failed to initialize. The app will run with limited functionality.")
-         # Don't stop the app, just continue with limited functionality
+         if not st.exception:
+            st.error("Core components (Embeddings or LLM) failed to initialize. Cannot continue.")
+         st.stop()
+
+    # --- Health Check Functions ---
+    def update_health_check():
+        """Update the health check timestamp."""
+        st.session_state.last_health_check = time.time()
+
+    def check_health_check_timeout():
+        """Check if we're approaching the health check timeout."""
+        if 'last_health_check' not in st.session_state:
+            st.session_state.last_health_check = time.time()
+            return False
+        
+        elapsed = time.time() - st.session_state.last_health_check
+        return elapsed > (config.HEALTH_CHECK_TIMEOUT - config.HEALTH_CHECK_GRACE_PERIOD)
 
     # --- Load existing vector store or process uploads ---
     # Reset evaluation state when processing new files
