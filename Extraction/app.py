@@ -1226,9 +1226,32 @@ def main():
     # Install Playwright browsers on startup
     install_playwright_browsers()
 
-    # Call the async function if needed
-    if (st.session_state.pdf_chain and st.session_state.web_chain) and not st.session_state.extraction_performed:
-        asyncio.run(process_attributes_main())
+    # Set up the main UI
+    st.title("Document Extraction")
+    st.markdown("Upload your documents or enter a part number to extract information.")
+
+    # File upload section
+    uploaded_files = st.file_uploader("Upload PDF files", type=['pdf'], accept_multiple_files=True)
+    
+    # Part number input
+    part_number = st.text_input("Enter Part Number (optional)")
+    if part_number:
+        st.session_state.part_number_input = part_number
+
+    # Process button
+    if st.button("Process Documents"):
+        if uploaded_files or part_number:
+            # Call the async function if needed
+            if (st.session_state.pdf_chain and st.session_state.web_chain) and not st.session_state.extraction_performed:
+                asyncio.run(process_attributes_main())
+        else:
+            st.warning("Please upload files or enter a part number to process.")
+
+    # Display results if available
+    if st.session_state.evaluation_results:
+        st.subheader("Extraction Results")
+        results_df = pd.DataFrame(st.session_state.evaluation_results)
+        st.dataframe(results_df)
 
 if __name__ == "__main__":
     main()

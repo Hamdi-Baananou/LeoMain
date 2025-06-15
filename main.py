@@ -129,6 +129,8 @@ def main():
     elif st.session_state.current_view == 'chatbot':
         chatbot_main()
     elif st.session_state.current_view == 'extraction':
+        # Clear the main content area
+        st.empty()
         try:
             extraction_main()
         except Exception as e:
