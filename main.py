@@ -32,7 +32,15 @@ sys.path.append(str(current_dir / "Extraction"))
 
 # Import the main functions from both apps
 from Chatbot.chatbot import main as chatbot_main
-from Extraction.app import main as extraction_main
+
+# Import extraction module with error handling
+try:
+    from Extraction.app import main as extraction_main
+except ImportError as e:
+    st.error(f"Error importing extraction module: {str(e)}")
+    def extraction_main():
+        st.error("The extraction module is not available. Please check the installation.")
+        st.info("You can still use the chatbot functionality.")
 
 def initialize_session_state():
     """Initialize all session state variables"""
