@@ -1183,32 +1183,25 @@ async def process_all_attributes(prompts_to_run, web_chain, pdf_chain, scraped_t
 
 # Update the main processing section to use the new parallel processing
 async def process_attributes_main():
-    """Main async function for processing attributes."""
-    if (st.session_state.pdf_chain and st.session_state.web_chain) and not st.session_state.extraction_performed:
-        # Initialize health check
-        update_health_check()
-        
-        # Get part number and scrape web data
+    """Main function for processing attributes."""
+    logger.info("Starting attribute processing...")
+    
+    try:
+        # Get the current part number
         part_number = st.session_state.get("part_number_input", "").strip()
-        scraped_table_html = None
+        logger.debug(f"Processing with part number: {part_number}")
         
-        if part_number:
-            if (st.session_state.current_part_number_scraped == part_number and 
-                st.session_state.scraped_table_html_cache is not None):
-                scraped_table_html = st.session_state.scraped_table_html_cache
-            else:
-                with st.spinner("Scraping web data..."):
-                    try:
-                        scraped_table_html = await scrape_website_table_html(part_number)
-                        if scraped_table_html:
-                            st.session_state.scraped_table_html_cache = scraped_table_html
-                            st.session_state.current_part_number_scraped = part_number
-                    except Exception as e:
-                        logger.error(f"Web scraping error: {e}")
+        # Get the scraped table HTML if available
+        scraped_table_html = st.session_state.get("scraped_table_html_cache")
+        if scraped_table_html:
+            logger.debug("Using cached scraped table HTML")
+        else:
+            logger.debug("No cached scraped table HTML available")
         
         # Process all attributes
         with st.spinner("Processing attributes..."):
             try:
+                logger.info("Starting attribute extraction...")
                 intermediate_results = await process_all_attributes(
                     prompts_to_run,
                     st.session_state.web_chain,
@@ -1218,23 +1211,29 @@ async def process_attributes_main():
                 
                 # Convert results to list and update session state
                 extraction_results_list = list(intermediate_results.values())
+                logger.info(f"Extraction complete. Generated {len(extraction_results_list)} results")
+                logger.debug(f"Result keys: {[r.get('Prompt Name') for r in extraction_results_list]}")
+                
                 st.session_state.evaluation_results = extraction_results_list
                 st.session_state.extraction_performed = True
                 
                 st.success("Extraction complete!")
             except Exception as e:
-                logger.error(f"Error during attribute processing: {e}")
+                logger.error(f"Error during attribute processing: {str(e)}", exc_info=True)
                 st.error("Error during processing. Please try again.")
+    except Exception as e:
+        logger.error(f"Error in process_attributes_main: {str(e)}", exc_info=True)
+        raise
 
 def main():
     """Main function for the extraction app."""
     try:
-        st.write("Debug: Starting extraction app initialization...")
+        logger.info("Starting extraction app initialization...")
         
         # Install Playwright browsers on startup
-        st.write("Debug: Installing Playwright browsers...")
+        logger.info("Installing Playwright browsers...")
         install_playwright_browsers()
-        st.write("Debug: Playwright installation complete")
+        logger.info("Playwright installation complete")
 
         # Set up the main UI
         st.title("Document Extraction")
@@ -1242,26 +1241,39 @@ def main():
 
         # File upload section
         uploaded_files = st.file_uploader("Upload PDF files", type=['pdf'], accept_multiple_files=True)
+        if uploaded_files:
+            logger.info(f"Files uploaded: {[f.name for f in uploaded_files]}")
         
         # Part number input
         part_number = st.text_input("Enter Part Number (optional)")
         if part_number:
+            logger.info(f"Part number entered: {part_number}")
             st.session_state.part_number_input = part_number
 
         # Process button
         if st.button("Process Documents"):
             if uploaded_files or part_number:
-                st.write("Debug: Processing documents...")
+                logger.info("Processing documents...")
+                logger.debug(f"Number of files to process: {len(uploaded_files) if uploaded_files else 0}")
+                logger.debug(f"Part number provided: {part_number if part_number else 'None'}")
+                
                 # Call the async function if needed
                 if (st.session_state.pdf_chain and st.session_state.web_chain) and not st.session_state.extraction_performed:
-                    st.write("Debug: Starting async processing...")
-                    asyncio.run(process_attributes_main())
-                    st.write("Debug: Async processing complete")
+                    logger.info("Starting async processing...")
+                    try:
+                        asyncio.run(process_attributes_main())
+                        logger.info("Async processing complete")
+                    except Exception as e:
+                        logger.error(f"Error during async processing: {str(e)}", exc_info=True)
+                        st.error(f"Error during processing: {str(e)}")
             else:
+                logger.warning("No files or part number provided for processing")
                 st.warning("Please upload files or enter a part number to process.")
 
         # Display results if available
         if st.session_state.evaluation_results:
+            logger.info("Displaying extraction results")
+            logger.debug(f"Number of results: {len(st.session_state.evaluation_results)}")
             st.subheader("Extraction Results")
             results_df = pd.DataFrame(st.session_state.evaluation_results)
             st.dataframe(results_df)
