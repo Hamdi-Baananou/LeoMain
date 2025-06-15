@@ -5,7 +5,7 @@ import base64
 import io
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
-from typing import List, BinaryIO, Optional, Dict, Any
+from typing import List, BinaryIO, Optional, Dict, Any, Tuple
 from loguru import logger
 from PIL import Image
 import fitz  # PyMuPDF
@@ -18,7 +18,7 @@ import config
 # Global thread pool for PDF processing
 pdf_thread_pool = ThreadPoolExecutor(max_workers=2)  # Adjust based on your needs
 
-def encode_pil_image(pil_image: Image.Image, format: str = "PNG") -> tuple[str, str]:
+def encode_pil_image(pil_image: Image.Image, format: str = "PNG") -> Tuple[str, str]:
     """Encode PIL Image to Base64 string."""
     buffered = io.BytesIO()
     # Ensure image is in RGB mode
@@ -178,8 +178,8 @@ Output only the generated Markdown content.
 
 async def process_uploaded_pdfs(uploaded_files: List[BinaryIO], temp_dir: str = "temp_pdf") -> List[Document]:
     """Process uploaded PDFs using Mistral Vision for better text extraction."""
-    all_docs = []
-    saved_file_paths = []
+    all_docs: List[Document] = []
+    saved_file_paths: List[str] = []
     
     logger.info(f"Starting batch processing of {len(uploaded_files)} PDF files")
     logger.debug(f"Temporary directory: {temp_dir}")
@@ -224,7 +224,7 @@ async def process_uploaded_pdfs(uploaded_files: List[BinaryIO], temp_dir: str = 
         with ThreadPoolExecutor(max_workers=min(len(saved_file_paths), 4)) as executor:
             # Create tasks for each PDF
             loop = asyncio.get_event_loop()
-            tasks = []
+            tasks: List[asyncio.Task] = []
             for file_path in saved_file_paths:
                 file_basename = os.path.basename(file_path)
                 logger.debug(f"Creating task for file: {file_basename}")
@@ -270,6 +270,6 @@ async def process_uploaded_pdfs(uploaded_files: List[BinaryIO], temp_dir: str = 
     
     return all_docs
 
-def process_pdfs_in_background(uploaded_files: List[BinaryIO], temp_dir: str = "temp_pdf") -> asyncio.Task:
+def process_pdfs_in_background(uploaded_files: List[BinaryIO], temp_dir: str = "temp_pdf") -> asyncio.Task[List[Document]]:
     """Start PDF processing in the background and return a task that can be awaited later."""
     return asyncio.create_task(process_uploaded_pdfs(uploaded_files, temp_dir))
