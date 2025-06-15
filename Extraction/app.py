@@ -1362,6 +1362,20 @@ def main():
         install_playwright_browsers()
         logger.info("Playwright installation complete")
 
+        # Initialize LLM if not already in session state
+        if 'llm' not in st.session_state:
+            try:
+                logger.info("Initializing LLM...")
+                st.session_state.llm = initialize_llm_cached()
+                if st.session_state.llm:
+                    logger.success("LLM initialized successfully")
+                else:
+                    raise Exception("LLM initialization returned None")
+            except Exception as e:
+                logger.error(f"Failed to initialize LLM: {e}", exc_info=True)
+                st.error(f"Fatal Error: Could not initialize LLM. Error: {e}")
+                st.stop()
+
         # Set up the main UI
         st.title("Document Extraction")
         st.markdown("Upload your documents or enter a part number to extract information.")
@@ -1388,7 +1402,7 @@ def main():
                 if not st.session_state.pdf_chain:
                     logger.info("PDF chain not initialized, creating now...")
                     try:
-                        st.session_state.pdf_chain = create_pdf_extraction_chain(st.session_state.retriever, llm)
+                        st.session_state.pdf_chain = create_pdf_extraction_chain(st.session_state.retriever, st.session_state.llm)
                         logger.info("PDF chain created successfully")
                     except Exception as e:
                         logger.error(f"Failed to create PDF chain: {e}", exc_info=True)
@@ -1398,7 +1412,7 @@ def main():
                 if not st.session_state.web_chain:
                     logger.info("Web chain not initialized, creating now...")
                     try:
-                        st.session_state.web_chain = create_web_extraction_chain(llm)
+                        st.session_state.web_chain = create_web_extraction_chain(st.session_state.llm)
                         logger.info("Web chain created successfully")
                     except Exception as e:
                         logger.error(f"Failed to create web chain: {e}", exc_info=True)
