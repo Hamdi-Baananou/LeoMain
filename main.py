@@ -129,7 +129,11 @@ def main():
     elif st.session_state.current_view == 'chatbot':
         chatbot_main()
     elif st.session_state.current_view == 'extraction':
-        extraction_main()
+        try:
+            extraction_main()
+        except Exception as e:
+            st.error(f"Error in extraction module: {str(e)}")
+            st.info("Please try refreshing the page or contact support if the issue persists.")
 
 if __name__ == "__main__":
     main() 

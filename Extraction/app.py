@@ -271,22 +271,6 @@ st.title("📄 PDF Auto-Extraction with Groq") # Updated title
 st.markdown("Upload PDF documents, process them, and view automatically extracted information.") # Updated description
 st.markdown(f"**Model:** `{config.LLM_MODEL_NAME}` | **Embeddings:** `{config.EMBEDDING_MODEL_NAME}` | **Persistence:** `{'Enabled' if persistence_enabled else 'Disabled'}`")
 
-# Check for API Key and show a prominent warning
-if not config.GROQ_API_KEY:
-    st.error("⚠️ GROQ_API_KEY not found! Please set the GROQ_API_KEY environment variable to use the full functionality of this app.", icon="⚠️")
-    st.info("You can set the API key by:")
-    st.markdown("""
-    1. Creating a `.env` file in the root directory with:
-       ```
-       GROQ_API_KEY=your_api_key_here
-       ```
-    2. Or setting it as an environment variable:
-       ```
-       set GROQ_API_KEY=your_api_key_here  # Windows
-       export GROQ_API_KEY=your_api_key_here  # Linux/Mac
-       ```
-    """)
-
 # --- Main Area for Document Upload and Processing ---
 st.header("1. Document Upload and Processing")
 
@@ -356,6 +340,23 @@ with col2:
 st.markdown("---")
 process_button = st.button("🚀 Process Documents", key="process_button", type="primary", use_container_width=True)
 
+# Check for API Key and show a warning (non-blocking)
+if not config.GROQ_API_KEY:
+    st.warning("⚠️ GROQ_API_KEY not found! Some features may be limited. Please set the GROQ_API_KEY environment variable for full functionality.", icon="⚠️")
+    st.info("You can set the API key by:")
+    st.markdown("""
+    1. Creating a `.env` file in the root directory with:
+       ```
+       GROQ_API_KEY=your_api_key_here
+       ```
+    2. Or setting it as an environment variable:
+       ```
+       set GROQ_API_KEY=your_api_key_here  # Windows
+       export GROQ_API_KEY=your_api_key_here  # Linux/Mac
+       ```
+    """)
+
+# Process button logic
 if process_button and st.session_state.uploaded_files:
     if not embedding_function or not llm:
         st.error("Cannot process documents: Core components (Embeddings or LLM) failed to initialize. Please check the error messages above and ensure your API keys are set correctly.")
@@ -463,622 +464,114 @@ if process_button and st.session_state.uploaded_files:
             st.warning("No text could be extracted or processed from the uploaded PDFs.")
             # reset_evaluation_state() called earlier is sufficient
 
-elif process_button and not st.session_state.uploaded_files:
-    st.warning("Please upload at least one PDF file before processing.")
+        elif process_button and not st.session_state.uploaded_files:
+         st.warning("Please upload at least one PDF file before processing.")
 
-# --- Display processed files status ---
-if st.session_state.processed_files:
-    st.info(f"Processed files: {', '.join(st.session_state.processed_files)}")
+    # --- Display processed files status ---
+    if st.session_state.processed_files:
+        st.info(f"Processed files: {', '.join(st.session_state.processed_files)}")
 
-# --- Main Area for Displaying Extraction Results ---
-st.header("2. Extracted Information")
+    # --- Main Area for Displaying Extraction Results ---
+    st.header("2. Extracted Information")
 
-# --- Get current asyncio event loop --- 
-# Needed for both scraping and running the async extraction chain
-try:
-    loop = asyncio.get_running_loop()
-except RuntimeError:  # 'RuntimeError: There is no current event loop...'
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-# -------------------------------------
+    # --- Get current asyncio event loop --- 
+    # Needed for both scraping and running the async extraction chain
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:  # 'RuntimeError: There is no current event loop...'
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    # -------------------------------------
 
-# Check if BOTH chains are ready before proceeding
-if not st.session_state.pdf_chain or not st.session_state.web_chain:
-    st.info("Upload and process documents using the sidebar to see extracted results here.")
-    # Ensure evaluation state is also clear if no chain
-    if not st.session_state.evaluation_results and not st.session_state.extraction_performed:
-         reset_evaluation_state() # Ensure reset if no chain and extraction not done
-else:
-    # --- Block 1: Run Extraction (if needed) --- 
-    if (st.session_state.pdf_chain and st.session_state.web_chain) and not st.session_state.extraction_performed:
-        # --- Get Part Number --- 
-        part_number = st.session_state.get("part_number_input", "").strip()
-        # ---------------------
-
-        # Define the prompts (attribute keys mapped to PDF and WEB instructions)
-        prompts_to_run = { 
-            # Material Properties
-            "Material Filling": {"pdf": MATERIAL_PROMPT, "web": MATERIAL_FILLING_WEB_PROMPT},
-            "Material Name": {"pdf": MATERIAL_NAME_PROMPT, "web": MATERIAL_NAME_WEB_PROMPT},
-            # Physical / Mechanical Attributes
-            "Pull-to-Seat": {"pdf": PULL_TO_SEAT_PROMPT, "web": PULL_TO_SEAT_WEB_PROMPT},
-            "Gender": {"pdf": GENDER_PROMPT, "web": GENDER_WEB_PROMPT},
-            "Height [MM]": {"pdf": HEIGHT_MM_PROMPT, "web": HEIGHT_MM_WEB_PROMPT},
-            "Length [MM]": {"pdf": LENGTH_MM_PROMPT, "web": LENGTH_MM_WEB_PROMPT},
-            "Width [MM]": {"pdf": WIDTH_MM_PROMPT, "web": WIDTH_MM_WEB_PROMPT},
-            "Number of Cavities": {"pdf": NUMBER_OF_CAVITIES_PROMPT, "web": NUMBER_OF_CAVITIES_WEB_PROMPT},
-            "Number of Rows": {"pdf": NUMBER_OF_ROWS_PROMPT, "web": NUMBER_OF_ROWS_WEB_PROMPT},
-            "Mechanical Coding": {"pdf": MECHANICAL_CODING_PROMPT, "web": MECHANICAL_CODING_WEB_PROMPT},
-            "Colour": {"pdf": COLOUR_PROMPT, "web": COLOUR_WEB_PROMPT},
-            "Colour Coding": {"pdf": COLOUR_CODING_PROMPT, "web": COLOUR_CODING_WEB_PROMPT},
-            # Sealing & Environmental
-            "Max. Working Temperature [°C]": {"pdf": WORKING_TEMPERATURE_PROMPT, "web": MAX_WORKING_TEMPERATURE_WEB_PROMPT},
-            "Min. Working Temperature [°C]": {"pdf": WORKING_TEMPERATURE_PROMPT, "web": MIN_WORKING_TEMPERATURE_WEB_PROMPT},
-            "Housing Seal": {"pdf": HOUSING_SEAL_PROMPT, "web": HOUSING_SEAL_WEB_PROMPT},
-            "Wire Seal": {"pdf": WIRE_SEAL_PROMPT, "web": WIRE_SEAL_WEB_PROMPT},
-            "Sealing": {"pdf": SEALING_PROMPT, "web": SEALING_WEB_PROMPT},
-            "Sealing Class": {"pdf": SEALING_CLASS_PROMPT, "web": SEALING_CLASS_WEB_PROMPT},
-            # Terminals & Connections
-            "Contact Systems": {"pdf": CONTACT_SYSTEMS_PROMPT, "web": CONTACT_SYSTEMS_WEB_PROMPT},
-            "Terminal Position Assurance": {"pdf": TERMINAL_POSITION_ASSURANCE_PROMPT, "web": TERMINAL_POSITION_ASSURANCE_WEB_PROMPT},
-            "Connector Position Assurance": {"pdf": CONNECTOR_POSITION_ASSURANCE_PROMPT, "web": CONNECTOR_POSITION_ASSURANCE_WEB_PROMPT},
-            "Closed Cavities": {"pdf": CLOSED_CAVITIES_PROMPT, "web": CLOSED_CAVITIES_WEB_PROMPT},
-            # Assembly & Type
-            "Pre-Assembled": {"pdf": PRE_ASSEMBLED_PROMPT, "web": PRE_ASSEMBLED_WEB_PROMPT},
-            "Type of Connector": {"pdf": CONNECTOR_TYPE_PROMPT, "web": CONNECTOR_TYPE_WEB_PROMPT},
-            "Set/Kit": {"pdf": SET_KIT_PROMPT, "web": SET_KIT_WEB_PROMPT},
-            # Specialized Attributes
-            "HV Qualified": {"pdf": HV_QUALIFIED_PROMPT, "web": HV_QUALIFIED_WEB_PROMPT}
-        }
-
-        # --- Block 1a: Scrape Web Table HTML (if needed) --- 
-        scraped_table_html = None # Initialize
-        if part_number: # Only scrape if part number is provided
-            # Check cache first
-            if st.session_state.current_part_number_scraped == part_number and st.session_state.scraped_table_html_cache is not None:
-                 logger.info(f"Using cached scraped HTML for part number {part_number}.")
-                 scraped_table_html = st.session_state.scraped_table_html_cache
-            else:
-                 # Scrape and update cache
-                 logger.info(f"Part number {part_number} changed or not cached. Attempting web scrape...")
-                 with st.spinner("Attempting to scrape data from supplier websites..."):
-                     scrape_start_time = time.time()
-                     try:
-                          # Ensure scrape_website_table_html is imported from llm_interface
-                          from llm_interface import scrape_website_table_html
-                          scraped_table_html = loop.run_until_complete(scrape_website_table_html(part_number))
-                          scrape_time = time.time() - scrape_start_time
-                          if scraped_table_html:
-                              logger.success(f"Web scraping successful in {scrape_time:.2f} seconds.")
-                              st.caption(f"ℹ️ Found web data for part# {part_number}. Will prioritize.")
-                          else:
-                              logger.warning(f"Web scraping attempted but failed to find table HTML in {scrape_time:.2f} seconds.")
-                              st.caption(f"⚠️ Web scraping failed for part# {part_number}, using PDF data only.")
-                          # Update cache
-                          st.session_state.scraped_table_html_cache = scraped_table_html
-                          st.session_state.current_part_number_scraped = part_number
-                     except Exception as scrape_e:
-                          scrape_time = time.time() - scrape_start_time
-                          logger.error(f"Error during web scraping ({scrape_time:.2f}s): {scrape_e}", exc_info=True)
-                          st.warning(f"An error occurred during web scraping: {scrape_e}. Using PDF data only.")
-                          # Ensure cache is cleared on error
-                          st.session_state.scraped_table_html_cache = None
-                          st.session_state.current_part_number_scraped = part_number
+    # Check if BOTH chains are ready before proceeding
+    if not st.session_state.pdf_chain or not st.session_state.web_chain:
+        st.info("Upload and process documents using the sidebar to see extracted results here.")
+        # Ensure evaluation state is also clear if no chain
+        if not st.session_state.evaluation_results and not st.session_state.extraction_performed:
+            reset_evaluation_state()  # Ensure reset if no chain and extraction not done
         else:
-             logger.info("No part number provided, skipping web scrape.")
-             # Clear cache if part number is removed
-             if st.session_state.current_part_number_scraped is not None:
-                  st.session_state.scraped_table_html_cache = None
-                  st.session_state.current_part_number_scraped = None
-        # --- End Block 1a ---
+            # --- Block 1: Run Extraction (if needed) --- 
+            if (st.session_state.pdf_chain and st.session_state.web_chain) and not st.session_state.extraction_performed:
+                # --- Get Part Number --- 
+                part_number = st.session_state.get("part_number_input", "").strip()
+                # ---------------------
 
-        # --- Log the result of scraping before Stage 1 --- 
-        logger.debug(f"Cleaned Scraped HTML content passed to Stage 1: {scraped_table_html[:500] if scraped_table_html else 'None'}...")
-        # -------------------------------------------------
-
-        # --- Block 1b: Two-Stage Extraction Logic --- 
-        st.info(f"Running Stage 1 (Web Data Extraction) for {len(prompts_to_run)} attributes...")
-        
-        cols = st.columns(2) # For displaying progress
-        col_index = 0
-        SLEEP_INTERVAL_SECONDS = 0.2 # Can potentially be lower for web chain
-        
-        intermediate_results = {} # Store stage 1 results {prompt_name: {result_data}} 
-        pdf_fallback_needed = [] # List of prompt_names needing stage 2
-
-        # --- Stage 1: Web Extraction --- 
-        if scraped_table_html:
-            for prompt_name, instructions in prompts_to_run.items(): # Iterate through attributes and their instructions
-                attribute_key = prompt_name
-                web_instruction = instructions["web"] # Get WEB instruction
-                current_col = cols[col_index % 2]
-                col_index += 1
-                json_result_str = None
-                run_time = 0.0
-                source = "Web" # Source for this stage
-                
-                with current_col:
-                     with st.spinner(f"Stage 1: Extracting {attribute_key} from Web Data..."):
-                        try:
-                            start_time = time.time()
-                            web_input = {
-                                "cleaned_web_data": scraped_table_html,
-                                "attribute_key": attribute_key,
-                                "extraction_instructions": web_instruction # Use specific web instruction
-                            }
-                            # --- Log the input to the web chain --- 
-                            logger.debug(f"Invoking web_chain for '{attribute_key}' with input keys: {list(web_input.keys())}")
-                            # -------------------------------------
-                            # Call helper using the web_chain
-                            json_result_str = loop.run_until_complete(
-                                _invoke_chain_and_process(st.session_state.web_chain, web_input, f"{attribute_key} (Web)")
-                            )
-                            run_time = time.time() - start_time
-                            logger.info(f"Stage 1 (Web) for '{attribute_key}' took {run_time:.2f} seconds.")
-                            time.sleep(SLEEP_INTERVAL_SECONDS) # Add delay
-                        except Exception as e:
-                             logger.error(f"Error during Stage 1 (Web) call for '{attribute_key}': {e}", exc_info=True)
-                             json_result_str = f'{{"error": "Exception during Stage 1 call: {e}"}}'
-                             run_time = time.time() - start_time # Record time even on error
-                
-                # --- Log the raw output from the web chain ---
-                logger.debug(f"Raw JSON result string from web_chain for '{attribute_key}': {json_result_str}")
-                # -----------------------------------------
-                
-                # --- Basic Parsing of Stage 1 Result --- 
-                final_answer_value = "Error"
-                parse_error = None
-                is_rate_limit = False
-                llm_returned_error_msg = None
-                raw_output = json_result_str if json_result_str else '{"error": "Stage 1 did not run"}'
-                needs_fallback = False
-                
-                try:
-                    # Minimal cleaning, rely on helper's cleaning primarily
-                    string_to_parse = raw_output.strip()
-                    parsed_json = json.loads(string_to_parse)
-                    
-                    if isinstance(parsed_json, dict):
-                        if attribute_key in parsed_json:
-                             parsed_value = str(parsed_json[attribute_key])
-                             # Check for NOT FOUND variants 
-                             if "not found" in parsed_value.lower() or parsed_value.strip() == "":
-                                 final_answer_value = "NOT FOUND"
-                                 needs_fallback = True # Mark for PDF stage
-                                 logger.info(f"Stage 1 result for '{attribute_key}' is NOT FOUND. Queued for PDF fallback.")
-                             else:
-                                 final_answer_value = parsed_value # Store successful web result
-                                 logger.success(f"Stage 1 successful for '{attribute_key}' from Web data.")
-                        elif "error" in parsed_json:
-                            # Handle errors from the web chain call
-                            error_msg = parsed_json['error']
-                            llm_returned_error_msg = error_msg
-                            if "rate limit" in error_msg.lower():
-                                final_answer_value = "Rate Limit Hit"
-                                is_rate_limit = True
-                                parse_error = ValueError("Rate limit hit (Web)")
-                            else:
-                                final_answer_value = f"Error: {error_msg[:100]}"
-                                parse_error = ValueError(f"Stage 1 Error: {error_msg}")
-                            needs_fallback = True # Also fallback on web chain error
-                            logger.warning(f"Stage 1 Error for '{attribute_key}'. Queued for PDF fallback. Error: {error_msg}")
-                        else:
-                             final_answer_value = "Unexpected JSON Format"
-                             parse_error = ValueError(f"Stage 1 Unexpected JSON keys: {list(parsed_json.keys())}")
-                             needs_fallback = True # Fallback on unexpected format
-                    else:
-                        final_answer_value = "Unexpected JSON Type"
-                        parse_error = TypeError(f"Stage 1 Expected dict, got {type(parsed_json)}")
-                        needs_fallback = True # Fallback
-                        logger.warning(f"Stage 1 Unexpected JSON type '{attribute_key}'. Queued for PDF fallback.")
-                        
-                except json.JSONDecodeError as json_err:
-                    parse_error = json_err
-                    final_answer_value = "Invalid JSON Response"
-                    logger.error(f"Failed to parse Stage 1 JSON for '{attribute_key}'. Error: {json_err}. String: '{string_to_parse}'")
-                    needs_fallback = True # Fallback on bad JSON
-                except Exception as processing_exc:
-                    parse_error = processing_exc
-                    final_answer_value = "Processing Error"
-                    logger.error(f"Error processing Stage 1 result for '{attribute_key}'. Error: {processing_exc}")
-                    needs_fallback = True # Fallback
-                
-                # Store intermediate result (even if NOT FOUND or error)
-                is_error = bool(parse_error) and not is_rate_limit
-                is_not_found_stage1 = final_answer_value == "NOT FOUND"
-                is_success_stage1 = not is_error and not is_not_found_stage1 and not is_rate_limit
-                
-                intermediate_results[prompt_name] = {
-                    'Prompt Name': prompt_name,
-                    'Extracted Value': final_answer_value, # Store Stage 1 value/error/NOT FOUND
-                    'Ground Truth': '',
-                    'Source': source,
-                    'Raw Output': raw_output,
-                    'Parse Error': str(parse_error) if parse_error else None,
-                    'Is Success': is_success_stage1,
-                    'Is Error': is_error,
-                    'Is Not Found': is_not_found_stage1,
-                    'Is Rate Limit': is_rate_limit,
-                    'Latency (s)': round(run_time, 2),
-                    'Exact Match': None,
-                    'Case-Insensitive Match': None
-                }
-                
-                if needs_fallback:
-                    pdf_fallback_needed.append(prompt_name)
-        
-        else: # No scraped HTML, all attributes need PDF fallback
-            logger.info("No scraped web data available. All attributes will use PDF extraction.")
-            pdf_fallback_needed = list(prompts_to_run.keys())
-            # Populate intermediate results with placeholders indicating skipped web stage
-            for prompt_name in pdf_fallback_needed:
-                 intermediate_results[prompt_name] = {
-                    'Prompt Name': prompt_name,
-                    'Extracted Value': "(Web Stage Skipped)", 
-                    'Ground Truth': '',
-                    'Source': 'Pending',
-                    'Raw Output': 'N/A',
-                    'Parse Error': None,
-                    'Is Success': False,
-                    'Is Error': False,
-                    'Is Not Found': True,
-                    'Is Rate Limit': False,
-                    'Latency (s)': 0.0,
-                    'Exact Match': None,
-                    'Case-Insensitive Match': None
+                # Define the prompts (attribute keys mapped to PDF and WEB instructions)
+                prompts_to_run = { 
+                    # Material Properties
+                    "Material Filling": {"pdf": MATERIAL_PROMPT, "web": MATERIAL_FILLING_WEB_PROMPT},
+                    "Material Name": {"pdf": MATERIAL_NAME_PROMPT, "web": MATERIAL_NAME_WEB_PROMPT},
+                    # Physical / Mechanical Attributes
+                    "Pull-to-Seat": {"pdf": PULL_TO_SEAT_PROMPT, "web": PULL_TO_SEAT_WEB_PROMPT},
+                    "Gender": {"pdf": GENDER_PROMPT, "web": GENDER_WEB_PROMPT},
+                    "Height [MM]": {"pdf": HEIGHT_MM_PROMPT, "web": HEIGHT_MM_WEB_PROMPT},
+                    "Length [MM]": {"pdf": LENGTH_MM_PROMPT, "web": LENGTH_MM_WEB_PROMPT},
+                    "Width [MM]": {"pdf": WIDTH_MM_PROMPT, "web": WIDTH_MM_WEB_PROMPT},
+                    "Number of Cavities": {"pdf": NUMBER_OF_CAVITIES_PROMPT, "web": NUMBER_OF_CAVITIES_WEB_PROMPT},
+                    "Number of Rows": {"pdf": NUMBER_OF_ROWS_PROMPT, "web": NUMBER_OF_ROWS_WEB_PROMPT},
+                    "Mechanical Coding": {"pdf": MECHANICAL_CODING_PROMPT, "web": MECHANICAL_CODING_WEB_PROMPT},
+                    "Colour": {"pdf": COLOUR_PROMPT, "web": COLOUR_WEB_PROMPT},
+                    "Colour Coding": {"pdf": COLOUR_CODING_PROMPT, "web": COLOUR_CODING_WEB_PROMPT},
+                    # Sealing & Environmental
+                    "Working Temperature": {"pdf": WORKING_TEMPERATURE_PROMPT, "web": WORKING_TEMPERATURE_WEB_PROMPT},
+                    "Housing Seal": {"pdf": HOUSING_SEAL_PROMPT, "web": HOUSING_SEAL_WEB_PROMPT},
+                    "Wire Seal": {"pdf": WIRE_SEAL_PROMPT, "web": WIRE_SEAL_WEB_PROMPT},
+                    "Sealing": {"pdf": SEALING_PROMPT, "web": SEALING_WEB_PROMPT},
+                    "Sealing Class": {"pdf": SEALING_CLASS_PROMPT, "web": SEALING_CLASS_WEB_PROMPT},
+                    # Terminals & Connections
+                    "Contact Systems": {"pdf": CONTACT_SYSTEMS_PROMPT, "web": CONTACT_SYSTEMS_WEB_PROMPT},
+                    "Terminal Position Assurance": {"pdf": TERMINAL_POSITION_ASSURANCE_PROMPT, "web": TERMINAL_POSITION_ASSURANCE_WEB_PROMPT},
+                    "Connector Position Assurance": {"pdf": CONNECTOR_POSITION_ASSURANCE_PROMPT, "web": CONNECTOR_POSITION_ASSURANCE_WEB_PROMPT},
+                    "Closed Cavities": {"pdf": CLOSED_CAVITIES_PROMPT, "web": CLOSED_CAVITIES_WEB_PROMPT},
+                    # Assembly & Type
+                    "Pre-Assembled": {"pdf": PRE_ASSEMBLED_PROMPT, "web": PRE_ASSEMBLED_WEB_PROMPT},
+                    "Connector Type": {"pdf": CONNECTOR_TYPE_PROMPT, "web": CONNECTOR_TYPE_WEB_PROMPT},
+                    "Set Kit": {"pdf": SET_KIT_PROMPT, "web": SET_KIT_WEB_PROMPT},
+                    # Specialized Attributes
+                    "HV Qualified": {"pdf": HV_QUALIFIED_PROMPT, "web": HV_QUALIFIED_WEB_PROMPT}
                 }
 
-        # --- Stage 2: PDF Fallback --- 
-        st.info(f"Running Stage 2 (PDF Fallback) for {len(pdf_fallback_needed)} attributes...")
-        col_index = 0 # Reset column index
-        SLEEP_INTERVAL_SECONDS = 0.5 # Potentially longer delay for more complex chain
+                # Call the async function
+                asyncio.run(process_attributes_main())
 
-        if not pdf_fallback_needed:
-            st.success("Stage 1 extraction successful for all attributes from web data.")
-        else:
-            for prompt_name in pdf_fallback_needed:
-                attribute_key = prompt_name
-                pdf_instruction = prompts_to_run[attribute_key]["pdf"] # Get specific PDF instruction
-                current_col = cols[col_index % 2]
-                col_index += 1
-                json_result_str = None
-                run_time = 0.0
-                source = "PDF" # Source for this stage
-                
-                with current_col:
-                     with st.spinner(f"Stage 2: Extracting {attribute_key} from PDF Data..."):
-                        try:
-                            start_time = time.time()
-                            pdf_input = {
-                                "extraction_instructions": pdf_instruction, # Use specific PDF instruction
-                                "attribute_key": attribute_key,
-                                "part_number": part_number if part_number else "Not Provided"
-                            }
-                            # Call helper using the pdf_chain
-                            json_result_str = loop.run_until_complete(
-                                _invoke_chain_and_process(st.session_state.pdf_chain, pdf_input, f"{attribute_key} (PDF)")
-                            )
-                            run_time = time.time() - start_time
-                            logger.info(f"Stage 2 (PDF) for '{attribute_key}' took {run_time:.2f} seconds.")
-                            time.sleep(SLEEP_INTERVAL_SECONDS) # Add delay
-                        except Exception as e:
-                             logger.error(f"Error during Stage 2 (PDF) call for '{attribute_key}': {e}", exc_info=True)
-                             json_result_str = f'{{"error": "Exception during Stage 2 call: {e}"}}'
-                             run_time = time.time() - start_time
-                
-                # --- Basic Parsing of Stage 2 Result --- 
-                final_answer_value = "Error"
-                parse_error = None
-                is_rate_limit = False
-                llm_returned_error_msg = None
-                raw_output = json_result_str if json_result_str else '{"error": "Stage 2 did not run"}'
-                
-                try:
-                    string_to_parse = raw_output.strip()
-                    parsed_json = json.loads(string_to_parse)
-                    if isinstance(parsed_json, dict):
-                        if attribute_key in parsed_json:
-                            final_answer_value = str(parsed_json[attribute_key]) # Store final PDF result
-                            logger.success(f"Stage 2 successful for '{attribute_key}' from PDF data.")
-                        elif "error" in parsed_json:
-                            error_msg = parsed_json['error']
-                            llm_returned_error_msg = error_msg
-                            if "rate limit" in error_msg.lower():
-                                final_answer_value = "Rate Limit Hit"
-                                is_rate_limit = True
-                                parse_error = ValueError("Rate limit hit (PDF)")
-                            else:
-                                final_answer_value = f"Error: {error_msg[:100]}"
-                                parse_error = ValueError(f"Stage 2 Error: {error_msg}")
-                            logger.warning(f"Stage 2 Error for '{attribute_key}' from PDF. Error: {error_msg}")
-                        else:
-                             final_answer_value = "Unexpected JSON Format"
-                             parse_error = ValueError(f"Stage 2 Unexpected JSON keys: {list(parsed_json.keys())}")
-                             logger.warning(f"Stage 2 Unexpected JSON for '{attribute_key}'.")
-                    else:
-                         final_answer_value = "Unexpected JSON Type"
-                         parse_error = TypeError(f"Stage 2 Expected dict, got {type(parsed_json)}")
-                         logger.warning(f"Stage 2 Unexpected JSON type for '{attribute_key}'.")
-                         
-                except json.JSONDecodeError as json_err:
-                    parse_error = json_err
-                    final_answer_value = "Invalid JSON Response"
-                    logger.error(f"Failed to parse Stage 2 JSON for '{attribute_key}'. Error: {json_err}. String: '{string_to_parse}'")
-                except Exception as processing_exc:
-                    parse_error = processing_exc
-                    final_answer_value = "Processing Error"
-                    logger.error(f"Error processing Stage 2 result for '{attribute_key}'. Error: {processing_exc}")
-
-                # --- Update the result in intermediate_results with Stage 2 data --- 
-                is_error = bool(parse_error) and not is_rate_limit
-                is_not_found_stage2 = "not found" in final_answer_value.lower() or final_answer_value.strip() == ""
-                is_success_stage2 = not is_error and not is_not_found_stage2 and not is_rate_limit
-                
-                # Add Stage 2 latency to existing Stage 1 latency if Stage 1 ran
-                stage1_latency = intermediate_results[prompt_name].get('Latency (s)', 0.0)
-                total_latency = stage1_latency + round(run_time, 2)
-                
-                intermediate_results[prompt_name].update({
-                    'Extracted Value': final_answer_value, # OVERWRITE with Stage 2 value/error
-                    'Source': source, # Update source to PDF
-                    'Raw Output': raw_output, # Store Stage 2 raw output
-                    'Parse Error': str(parse_error) if parse_error else None,
-                    'Is Success': is_success_stage2,
-                    'Is Error': is_error,
-                    'Is Not Found': is_not_found_stage2,
-                    'Is Rate Limit': is_rate_limit,
-                    'Latency (s)': total_latency 
-                })
-                logger.info(f"Updated result for '{prompt_name}' with PDF fallback data.")
-
-        # --- Final Processing --- 
-        # Convert intermediate_results dict to list
-        extraction_results_list = list(intermediate_results.values()) 
-        
-        # Set extraction_performed flag and handle success/error messages
-        extraction_successful = True # Assume success unless critical errors occurred (e.g., chain init)
-
-        if extraction_successful:
-            st.session_state.evaluation_results = extraction_results_list
-            st.session_state.extraction_performed = True
-            st.success("Extraction complete (using Web data where possible, falling back to PDF). Enter ground truth below.")
-            # st.rerun() # REMOVE/COMMENT OUT to keep cards visible
-        else:
-            st.error("Extraction process encountered critical issues.")
-            # Optionally store partial results if desired
-            st.session_state.evaluation_results = extraction_results_list
-            st.session_state.extraction_performed = True
-            # st.rerun() # REMOVE/COMMENT OUT to keep cards visible (even on error)
-
-
-    # --- Block 2: Display Ground Truth / Metrics (if results exist) ---
-    # This part needs the 'Source' column re-added for display
+    # --- Block 2: Display Results (if available) ---
     if st.session_state.evaluation_results:
-        st.divider()
-        st.header("3. Enter Ground Truth & Evaluate")
+        # Prepare data for export
+        export_df = pd.DataFrame(st.session_state.evaluation_results)
+        export_summary = st.session_state.evaluation_metrics if st.session_state.evaluation_metrics else {}
 
-        results_df = pd.DataFrame(st.session_state.evaluation_results)
-        if 'Source' not in results_df.columns:
-             results_df['Source'] = 'Unknown' # Add placeholder if missing
+        # Convert DataFrame to CSV
+        @st.cache_data # Cache the conversion
+        def convert_df_to_csv(df):
+            return df.to_csv(index=False).encode('utf-8')
 
-        st.info("Enter the correct 'Ground Truth' value for each field below. Leave blank if the field shouldn't exist or 'NOT FOUND' is correct.")
+        csv_data = convert_df_to_csv(export_df)
 
-        disabled_cols = [col for col in results_df.columns if col != 'Ground Truth']
-        column_order = [ # Add Source back
-            'Prompt Name', 'Extracted Value', 'Ground Truth', 'Source',
-            'Is Success', 'Is Error', 'Is Not Found', 'Is Rate Limit',
-            'Latency (s)', 'Exact Match', 'Case-Insensitive Match'
-        ]
+        # Convert summary dict to JSON
+        json_summary_data = json.dumps(export_summary, indent=2).encode('utf-8')
 
-        edited_df = st.data_editor(
-            results_df,
-            key="gt_editor",
-            use_container_width=True,
-            num_rows="dynamic",
-            disabled=disabled_cols,
-            column_order=column_order,
-            column_config={ # Add Source back
-                 "Prompt Name": st.column_config.TextColumn(width="medium"),
-                 "Extracted Value": st.column_config.TextColumn(width="medium"),
-                 "Ground Truth": st.column_config.TextColumn(width="medium", help="Enter the correct value here"),
-                 "Source": st.column_config.TextColumn(width="small"), # Show source
-                 "Is Success": st.column_config.CheckboxColumn("Success?", width="small"),
-                 "Is Error": st.column_config.CheckboxColumn("Error?", width="small"),
-                 "Is Not Found": st.column_config.CheckboxColumn("Not Found?", width="small"),
-                 "Is Rate Limit": st.column_config.CheckboxColumn("Rate Limit?", width="small"),
-                 "Latency (s)": st.column_config.NumberColumn(format="%.2f", width="small"),
-                 "Exact Match": st.column_config.CheckboxColumn("Exact?", width="small"),
-                 "Case-Insensitive Match": st.column_config.CheckboxColumn("Case-Ins?", width="small"),
-                 "Raw Output": None,
-                 "Parse Error": None
-            }
-        )
-
-        calculate_button = st.button("📊 Calculate Metrics", key="calc_metrics", type="primary")
-
-        if calculate_button:
-            # --- Metric Calculation Logic --- 
-            final_results_list = edited_df.to_dict('records')
-            total_fields = len(final_results_list)
-            success_count = 0
-            error_count = 0
-            not_found_count = 0 # Counts final NOT FOUND results
-            rate_limit_count = 0
-            exact_match_count = 0
-            case_insensitive_match_count = 0
-            total_latency = 0.0
-            valid_latency_count = 0 # Count fields where latency is meaningful
-
-            for result in final_results_list:
-                extracted = str(result['Extracted Value']).strip()
-                ground_truth = str(result['Ground Truth']).strip()
-
-                # Normalize "NOT FOUND" variations for comparison
-                # Handle the placeholder from skipped web stage
-                if extracted == "(Web Stage Skipped)":
-                    extracted_norm = "NOT FOUND" # Treat skipped as NOT FOUND for comparison
-                else:
-                    extracted_norm = "NOT FOUND" if "not found" in extracted.lower() else extracted
-                gt_norm = "NOT FOUND" if "not found" in ground_truth.lower() else ground_truth
-                gt_norm = "NOT FOUND" if ground_truth == "" else gt_norm # Treat empty GT as NOT FOUND
-
-                # Calculate matches
-                is_exact_match = False
-                is_case_insensitive_match = False
-
-                # Only calculate accuracy if not an error/rate limit and GT provided
-                # Also exclude the placeholder value from accuracy calculation
-                if not result['Is Error'] and not result['Is Rate Limit'] and extracted != "(Web Stage Skipped)":
-                    if extracted_norm == gt_norm:
-                        is_exact_match = True
-                        is_case_insensitive_match = True # Exact implies case-insensitive
-                        if gt_norm != "NOT FOUND": # Count matches only if GT wasn't NOT FOUND
-                            exact_match_count += 1
-                            case_insensitive_match_count += 1
-                    elif extracted_norm.lower() == gt_norm.lower():
-                        is_case_insensitive_match = True
-                        if gt_norm != "NOT FOUND":
-                             case_insensitive_match_count += 1
-
-                result['Exact Match'] = is_exact_match
-                result['Case-Insensitive Match'] = is_case_insensitive_match
-
-                # Count outcomes (based on final result)
-                if result['Is Success']: success_count += 1
-                if result['Is Error']: error_count += 1
-                if result['Is Not Found']: not_found_count += 1
-                if result['Is Rate Limit']: rate_limit_count += 1
-
-                # Sum latency
-                if isinstance(result['Latency (s)'], (int, float)):
-                    total_latency += result['Latency (s)']
-                    valid_latency_count += 1
-
-
-            # Calculate overall metrics
-            # Adjust denominator: fields where accuracy could be measured
-            # Exclude errors, rate limits, and final NOT FOUND results
-            accuracy_denominator = total_fields - error_count - rate_limit_count - not_found_count
-
-            st.session_state.evaluation_metrics = {
-                "Total Fields": total_fields,
-                "Success Count": success_count,
-                "Error Count": error_count,
-                "Not Found Count (Final)": not_found_count, # Renamed for clarity
-                "Rate Limit Count": rate_limit_count,
-                "Exact Match Count": exact_match_count,
-                "Case-Insensitive Match Count": case_insensitive_match_count,
-                "Accuracy Denominator": accuracy_denominator,
-                "Success Rate (%)": (success_count / total_fields * 100) if total_fields > 0 else 0,
-                "Error Rate (%)": (error_count / total_fields * 100) if total_fields > 0 else 0,
-                "Not Found Rate (%)": (not_found_count / total_fields * 100) if total_fields > 0 else 0,
-                "Rate Limit Rate (%)": (rate_limit_count / total_fields * 100) if total_fields > 0 else 0,
-                "Exact Match Accuracy (%)": (exact_match_count / accuracy_denominator * 100) if accuracy_denominator > 0 else 0,
-                "Case-Insensitive Accuracy (%)": (case_insensitive_match_count / accuracy_denominator * 100) if accuracy_denominator > 0 else 0,
-                "Average Latency (s)": (total_latency / valid_latency_count) if valid_latency_count > 0 else 0,
-            }
-
-            # Update the main results list with comparison outcomes
-            st.session_state.evaluation_results = final_results_list
-            st.success("Metrics calculated successfully!")
-            # st.rerun() # REMOVE/COMMENT OUT to keep cards visible
-
-        # --- Display Metrics Section --- 
-        st.divider()
-        st.header("4. Evaluation Metrics")
-        if st.session_state.evaluation_metrics:
-            metrics = st.session_state.evaluation_metrics
-            st.subheader("Summary Statistics")
-
-            m_cols = st.columns(4)
-            m_cols[0].metric("Total Fields", metrics["Total Fields"])
-            m_cols[1].metric("Success Rate", f"{metrics['Success Rate (%)']:.1f}%", delta=f"{metrics['Success Count']} fields", delta_color="off")
-            m_cols[2].metric("Error Rate", f"{metrics['Error Rate (%)']:.1f}%", delta=f"{metrics['Error Count']} fields", delta_color="inverse" if metrics['Error Count'] > 0 else "off")
-            # Clarify latency delta
-            valid_calls = metrics["Total Fields"] - metrics["Rate Limit Count"]
-            m_cols[3].metric("Avg Latency", f"{metrics['Average Latency (s)']:.2f}s", delta=f"over {valid_calls} calls", delta_color="off")
-
-            m_cols2 = st.columns(4)
-            # Use the accuracy denominator in help text
-            m_cols2[0].metric("Exact Match Acc.", f"{metrics['Exact Match Accuracy (%)']:.1f}%", help=f"Based on {metrics['Accuracy Denominator']} fields (excluding errors, rate limits, and final 'NOT FOUND' results)")
-            m_cols2[1].metric("Case-Insensitive Acc.", f"{metrics['Case-Insensitive Accuracy (%)']:.1f}%")
-            m_cols2[2].metric("Final 'NOT FOUND' Rate", f"{metrics['Not Found Rate (%)']:.1f}%", delta=f"{metrics['Not Found Count (Final)']} fields", delta_color="off")
-            m_cols2[3].metric("Rate Limit Hits", f"{metrics['Rate Limit Count']}", delta_color="inverse" if metrics['Rate Limit Count'] > 0 else "off")
-
-
-            st.subheader("Detailed Results")
-            # Display final results including Source
-            detailed_df = pd.DataFrame(st.session_state.evaluation_results)
-            if 'Source' not in detailed_df.columns:
-                 detailed_df['Source'] = 'Unknown'
-
-            st.dataframe(
-                detailed_df,
-                use_container_width=True,
-                hide_index=True,
-                 column_config={ # Add Source back
-                     "Prompt Name": st.column_config.TextColumn(width="medium"),
-                     "Extracted Value": st.column_config.TextColumn(width="medium"),
-                     "Ground Truth": st.column_config.TextColumn(width="medium"),
-                     "Source": st.column_config.TextColumn(width="small"), # Show source
-                     "Is Success": st.column_config.CheckboxColumn("Success?",width="small"),
-                     "Is Error": st.column_config.CheckboxColumn("Error?", width="small"),
-                     "Is Not Found": st.column_config.CheckboxColumn("Not Found?", width="small"),
-                     "Is Rate Limit": st.column_config.CheckboxColumn("Rate Limit?", width="small"),
-                     "Latency (s)": st.column_config.NumberColumn(format="%.2f", width="small"),
-                     "Exact Match": st.column_config.CheckboxColumn("Exact?", width="small"),
-                     "Case-Insensitive Match": st.column_config.CheckboxColumn("Case-Ins?", width="small"),
-                     "Raw Output": st.column_config.TextColumn("Raw Output", width="large"),
-                     "Parse Error": st.column_config.TextColumn("Parse Error", width="medium")
-                }
+        export_cols = st.columns(2)
+        with export_cols[0]:
+            st.download_button(
+                label="📥 Download Detailed Results (CSV)",
+                data=csv_data,
+                file_name='detailed_extraction_results.csv',
+                mime='text/csv',
+                key='download_csv'
             )
+        with export_cols[1]:
+            st.download_button(
+                label="📥 Download Summary Metrics (JSON)",
+                data=json_summary_data,
+                file_name='evaluation_summary.json',
+                mime='application/json',
+                key='download_json'
+            )
+    else:
+        st.info("Process documents and calculate metrics to enable export.")
 
-        else:
-            st.info("Calculate metrics after entering ground truth to see results here.")
-
-
-        # --- Export Section --- 
-        st.divider()
-        st.header("5. Export Results")
-
-        if st.session_state.evaluation_results:
-            # Prepare data for export
-            export_df = pd.DataFrame(st.session_state.evaluation_results)
-            export_summary = st.session_state.evaluation_metrics if st.session_state.evaluation_metrics else {}
-
-            # Convert DataFrame to CSV
-            @st.cache_data # Cache the conversion
-            def convert_df_to_csv(df):
-                return df.to_csv(index=False).encode('utf-8')
-
-            csv_data = convert_df_to_csv(export_df)
-
-            # Convert summary dict to JSON
-            json_summary_data = json.dumps(export_summary, indent=2).encode('utf-8')
-
-            export_cols = st.columns(2)
-            with export_cols[0]:
-                st.download_button(
-                    label="📥 Download Detailed Results (CSV)",
-                    data=csv_data,
-                    file_name='detailed_extraction_results.csv',
-                    mime='text/csv',
-                    key='download_csv'
-                )
-            with export_cols[1]:
-                 st.download_button(
-                    label="📥 Download Summary Metrics (JSON)",
-                    data=json_summary_data,
-                    file_name='evaluation_summary.json',
-                    mime='application/json',
-                    key='download_json'
-                )
-        else:
-            st.info("Process documents and calculate metrics to enable export.")
-
-    # --- Block 3: Handle cases where extraction ran but yielded nothing, or hasn't run ---
-    # This logic might need review depending on how Stage 1/2 errors are handled
-    elif (st.session_state.pdf_chain or st.session_state.web_chain) and st.session_state.extraction_performed:
+    # --- Block 3: Handle cases where extraction ran but yielded nothing ---
+    if (st.session_state.pdf_chain or st.session_state.web_chain) and st.session_state.extraction_performed and not st.session_state.evaluation_results:
         st.warning("Extraction process completed, but no valid results were generated for some fields. Check logs or raw outputs if available.")
 
 async def process_attributes_main():
@@ -1125,153 +618,115 @@ async def process_attributes_main():
                 logger.error(f"Error during attribute processing: {e}")
                 st.error("Error during processing. Please try again.")
 
-# Call the async function
-if (st.session_state.pdf_chain and st.session_state.web_chain) and not st.session_state.extraction_performed:
-    asyncio.run(process_attributes_main())
-
 def main():
-    # --- Logging Configuration ---
-    # Configure Loguru logger (can be more flexible than standard logging)
-    # logger.add("logs/app_{time}.log", rotation="10 MB", level="INFO") # Example: Keep file logging if desired
-    # Toasts are disabled as per previous request
-    # Errors will still be shown via st.error where used explicitly
-
-    # --- Application State ---
-    # Only initialize state variables if they don't exist
-    state_vars = {
-        'retriever': None,
-        'pdf_chain': None,
-        'web_chain': None,
-        'processed_files': [],
-        'evaluation_results': [],
-        'evaluation_metrics': None,
-        'extraction_performed': False,
-        'scraped_table_html_cache': None,
-        'current_part_number_scraped': None,
-        'pdf_processing_task': None,
-        'pdf_processing_complete': False,
-        'pdf_processing_results': None
-    }
+    """Main function to run the Streamlit app"""
+    # Initialize session state
+    initialize_session_state()
     
-    # Initialize only missing state variables
-    for var, default_value in state_vars.items():
-        if var not in st.session_state:
-            st.session_state[var] = default_value
-
-    # --- Global Variables / Initialization ---
-    # Initialize embeddings (this is relatively heavy, do it once)
-    @st.cache_resource
-    def initialize_embeddings():
-        # Let exceptions from get_embedding_function propagate
-        embeddings = get_embedding_function()
-        return embeddings
-
-    # Initialize LLM (also potentially heavy/needs API key check)
-    @st.cache_resource
-    def initialize_llm_cached():
-        # logger.info("Attempting to initialize LLM...") # Log before calling if needed
-        llm_instance = initialize_llm()
-        # logger.success("LLM initialized successfully.") # Log after successful call if needed
-        return llm_instance
-
-    # --- Wrap the cached function call in try-except ---
-    embedding_function = None
-    llm = None
-
-    try:
-        logger.info("Attempting to initialize embedding function...")
-        embedding_function = initialize_embeddings()
-        if embedding_function:
-             logger.success("Embedding function initialized successfully.")
-    except Exception as e:
-        logger.error(f"Failed to initialize embeddings: {e}", exc_info=True)
-        st.error(f"Fatal Error: Could not initialize embedding model. Error: {e}")
-        st.stop()
-
-    try:
-        logger.info("Attempting to initialize LLM...")
-        llm = initialize_llm_cached()
-        if llm:
-            logger.success("LLM initialized successfully.")
-    except Exception as e:
-         logger.error(f"Failed to initialize LLM: {e}", exc_info=True)
-         st.error(f"Fatal Error: Could not initialize LLM. Error: {e}")
-         st.stop()
-
-    # --- Check if initializations failed ---
-    if embedding_function is None or llm is None:
-         if not st.exception:
-            st.error("Core components (Embeddings or LLM) failed to initialize. Cannot continue.")
-         st.stop()
-
-    # --- Health Check Functions ---
-    def update_health_check():
-        """Update the health check timestamp."""
-        st.session_state.last_health_check = time.time()
-
-    def check_health_check_timeout():
-        """Check if we're approaching the health check timeout."""
-        if 'last_health_check' not in st.session_state:
-            st.session_state.last_health_check = time.time()
-            return False
+    # Set up the page
+    st.title("📄 PDF Auto-Extraction with Groq")
+    st.markdown("""
+    This tool automatically extracts attributes from PDF documents and compares them with web data.
+    Upload your PDF files and enter a part number to get started.
+    """)
+    
+    # Check for API key
+    if not st.session_state.get('GROQ_API_KEY'):
+        st.error("Please set your GROQ API key in the .env file")
+        return
+    
+    # Initialize resources
+    if not initialize_resources():
+        st.error("Failed to initialize resources. Please check the logs for details.")
+        return
+    
+    # Main area for document upload and processing
+    st.markdown("### 📤 Upload Documents")
+    st.markdown("Upload your PDF files here. You can upload multiple files at once.")
+    
+    # File uploader
+    uploaded_files = st.file_uploader(
+        "Choose PDF files",
+        type=['pdf'],
+        accept_multiple_files=True,
+        key="file_uploader"
+    )
+    
+    # Initialize uploaded_files in session state if not present
+    if 'uploaded_files' not in st.session_state:
+        st.session_state.uploaded_files = []
+    
+    # Check for new files
+    if uploaded_files:
+        current_files = {f.name for f in st.session_state.uploaded_files}
+        new_files = [f for f in uploaded_files if f.name not in current_files]
         
-        elapsed = time.time() - st.session_state.last_health_check
-        return elapsed > (config.HEALTH_CHECK_TIMEOUT - config.HEALTH_CHECK_GRACE_PERIOD)
-
-    # --- Load existing vector store or process uploads ---
-    # Reset evaluation state when processing new files
-    def reset_evaluation_state():
-        st.session_state.evaluation_results = []
-        st.session_state.evaluation_metrics = None
-        st.session_state.extraction_performed = False # Reset the flag here too
-        st.session_state.scraped_table_html_cache = None # Clear scraped HTML cache
-        st.session_state.current_part_number_scraped = None # Clear scraped part number tracker
-        # Clear data editor state if it exists
-        if 'gt_editor' in st.session_state:
-            del st.session_state['gt_editor']
-
-    # Try loading existing vector store and create BOTH extraction chains
-    if st.session_state.retriever is None and config.CHROMA_SETTINGS.is_persistent and embedding_function:
-        logger.info("Attempting to load existing vector store...")
-        st.session_state.retriever = load_existing_vector_store(embedding_function)
-        if st.session_state.retriever:
-            logger.success("Successfully loaded retriever from persistent storage.")
-            st.session_state.processed_files = ["Existing data loaded from disk"]
-            # --- Create BOTH Extraction Chains --- 
-            logger.info("Creating extraction chains from loaded retriever...")
-            st.session_state.pdf_chain = create_pdf_extraction_chain(st.session_state.retriever, llm)
-            st.session_state.web_chain = create_web_extraction_chain(llm)
-            if not st.session_state.pdf_chain or not st.session_state.web_chain:
-                st.warning("Failed to create one or both extraction chains from loaded retriever.")
-            # ------------------------------------
-            # Don't reset evaluation if loading existing data, but ensure extraction hasn't run yet
-            st.session_state.extraction_performed = False # Ensure flag is false on load
+        if new_files:
+            st.session_state.uploaded_files.extend(new_files)
+            st.success(f"Added {len(new_files)} new file(s)")
+    
+    # Display currently uploaded files
+    if st.session_state.uploaded_files:
+        st.markdown("### 📚 Uploaded Files")
+        for file in st.session_state.uploaded_files:
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.write(f"📄 {file.name}")
+            with col2:
+                if st.button("🗑️ Remove", key=f"remove_{file.name}"):
+                    st.session_state.uploaded_files.remove(file)
+                    st.rerun()
+    
+    # Part number input
+    st.markdown("### 🔍 Part Number")
+    part_number = st.text_input("Enter the part number to search for", key="part_number")
+    
+    # Process button
+    if st.button("Process Documents", type="primary"):
+        if not st.session_state.uploaded_files:
+            st.warning("Please upload at least one PDF file")
+        elif not part_number:
+            st.warning("Please enter a part number")
         else:
-            logger.warning("No existing persistent vector store found or failed to load.")
-
-    # --- UI Layout ---
-    persistence_enabled = config.CHROMA_SETTINGS.is_persistent
-    st.title("📄 PDF Auto-Extraction with Groq") # Updated title
-    st.markdown("Upload PDF documents, process them, and view automatically extracted information.") # Updated description
-    st.markdown(f"**Model:** `{config.LLM_MODEL_NAME}` | **Embeddings:** `{config.EMBEDDING_MODEL_NAME}` | **Persistence:** `{'Enabled' if persistence_enabled else 'Disabled'}`")
-
-    # Check for API Key and show a prominent warning
-    if not config.GROQ_API_KEY:
-        st.error("⚠️ GROQ_API_KEY not found! Please set the GROQ_API_KEY environment variable to use the full functionality of this app.", icon="⚠️")
-        st.info("You can set the API key by:")
-        st.markdown("""
-        1. Creating a `.env` file in the root directory with:
-           ```
-           GROQ_API_KEY=your_api_key_here
-           ```
-        2. Or setting it as an environment variable:
-           ```
-           set GROQ_API_KEY=your_api_key_here  # Windows
-           export GROQ_API_KEY=your_api_key_here  # Linux/Mac
-           ```
-        """)
-
-    # ... rest of the main function code ...
+            with st.spinner("Processing documents..."):
+                try:
+                    # Process the documents
+                    process_documents(part_number)
+                except Exception as e:
+                    st.error(f"Error processing documents: {str(e)}")
+    
+    # Display results if available
+    if st.session_state.get('evaluation_results'):
+        st.markdown("### 📊 Results")
+        
+        # Prepare data for export
+        results_df = pd.DataFrame(st.session_state.evaluation_results)
+        summary_dict = st.session_state.evaluation_metrics
+        
+        # Create download buttons
+        csv = convert_df_to_csv(results_df)
+        st.download_button(
+            label="Download Detailed Results (CSV)",
+            data=csv,
+            file_name="extraction_results.csv",
+            mime="text/csv"
+        )
+        
+        st.download_button(
+            label="Download Summary Metrics (JSON)",
+            data=json.dumps(summary_dict, indent=2),
+            file_name="extraction_metrics.json",
+            mime="application/json"
+        )
+        
+        # Display results
+        st.dataframe(results_df)
+        
+        # Display metrics
+        st.markdown("### 📈 Metrics")
+        st.json(summary_dict)
+    elif st.session_state.get('extraction_performed'):
+        st.warning("Extraction ran but yielded no valid results. Please check the logs or raw outputs.")
 
 if __name__ == "__main__":
     main()
