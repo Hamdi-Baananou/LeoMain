@@ -106,6 +106,95 @@ from extraction_prompts_web import (
     HV_QUALIFIED_WEB_PROMPT
 )
 
+# Define prompts at the module level
+MATERIAL_PROMPT = "Extract the material filling information from the document."
+MATERIAL_FILLING_WEB_PROMPT = "Extract the material filling information from the web data."
+MATERIAL_NAME_PROMPT = "Extract the material name from the document."
+MATERIAL_NAME_WEB_PROMPT = "Extract the material name from the web data."
+PULL_TO_SEAT_PROMPT = "Extract the pull-to-seat value from the document."
+PULL_TO_SEAT_WEB_PROMPT = "Extract the pull-to-seat value from the web data."
+GENDER_PROMPT = "Extract the gender information from the document."
+GENDER_WEB_PROMPT = "Extract the gender information from the web data."
+HEIGHT_MM_PROMPT = "Extract the height in millimeters from the document."
+HEIGHT_MM_WEB_PROMPT = "Extract the height in millimeters from the web data."
+LENGTH_MM_PROMPT = "Extract the length in millimeters from the document."
+LENGTH_MM_WEB_PROMPT = "Extract the length in millimeters from the web data."
+WIDTH_MM_PROMPT = "Extract the width in millimeters from the document."
+WIDTH_MM_WEB_PROMPT = "Extract the width in millimeters from the web data."
+NUMBER_OF_CAVITIES_PROMPT = "Extract the number of cavities from the document."
+NUMBER_OF_CAVITIES_WEB_PROMPT = "Extract the number of cavities from the web data."
+NUMBER_OF_ROWS_PROMPT = "Extract the number of rows from the document."
+NUMBER_OF_ROWS_WEB_PROMPT = "Extract the number of rows from the web data."
+MECHANICAL_CODING_PROMPT = "Extract the mechanical coding from the document."
+MECHANICAL_CODING_WEB_PROMPT = "Extract the mechanical coding from the web data."
+COLOUR_PROMPT = "Extract the colour information from the document."
+COLOUR_WEB_PROMPT = "Extract the colour information from the web data."
+COLOUR_CODING_PROMPT = "Extract the colour coding from the document."
+COLOUR_CODING_WEB_PROMPT = "Extract the colour coding from the web data."
+WORKING_TEMPERATURE_PROMPT = "Extract the working temperature range from the document."
+MAX_WORKING_TEMPERATURE_WEB_PROMPT = "Extract the maximum working temperature from the web data."
+MIN_WORKING_TEMPERATURE_WEB_PROMPT = "Extract the minimum working temperature from the web data."
+HOUSING_SEAL_PROMPT = "Extract the housing seal information from the document."
+HOUSING_SEAL_WEB_PROMPT = "Extract the housing seal information from the web data."
+WIRE_SEAL_PROMPT = "Extract the wire seal information from the document."
+WIRE_SEAL_WEB_PROMPT = "Extract the wire seal information from the web data."
+SEALING_PROMPT = "Extract the sealing information from the document."
+SEALING_WEB_PROMPT = "Extract the sealing information from the web data."
+SEALING_CLASS_PROMPT = "Extract the sealing class from the document."
+SEALING_CLASS_WEB_PROMPT = "Extract the sealing class from the web data."
+CONTACT_SYSTEMS_PROMPT = "Extract the contact systems information from the document."
+CONTACT_SYSTEMS_WEB_PROMPT = "Extract the contact systems information from the web data."
+TERMINAL_POSITION_ASSURANCE_PROMPT = "Extract the terminal position assurance information from the document."
+TERMINAL_POSITION_ASSURANCE_WEB_PROMPT = "Extract the terminal position assurance information from the web data."
+CONNECTOR_POSITION_ASSURANCE_PROMPT = "Extract the connector position assurance information from the document."
+CONNECTOR_POSITION_ASSURANCE_WEB_PROMPT = "Extract the connector position assurance information from the web data."
+CLOSED_CAVITIES_PROMPT = "Extract the closed cavities information from the document."
+CLOSED_CAVITIES_WEB_PROMPT = "Extract the closed cavities information from the web data."
+PRE_ASSEMBLED_PROMPT = "Extract the pre-assembled information from the document."
+PRE_ASSEMBLED_WEB_PROMPT = "Extract the pre-assembled information from the web data."
+CONNECTOR_TYPE_PROMPT = "Extract the type of connector from the document."
+CONNECTOR_TYPE_WEB_PROMPT = "Extract the type of connector from the web data."
+SET_KIT_PROMPT = "Extract the set/kit information from the document."
+SET_KIT_WEB_PROMPT = "Extract the set/kit information from the web data."
+HV_QUALIFIED_PROMPT = "Extract the HV qualified information from the document."
+HV_QUALIFIED_WEB_PROMPT = "Extract the HV qualified information from the web data."
+
+# Define the prompts dictionary at the module level
+prompts_to_run = { 
+    # Material Properties
+    "Material Filling": {"pdf": MATERIAL_PROMPT, "web": MATERIAL_FILLING_WEB_PROMPT},
+    "Material Name": {"pdf": MATERIAL_NAME_PROMPT, "web": MATERIAL_NAME_WEB_PROMPT},
+    # Physical / Mechanical Attributes
+    "Pull-to-Seat": {"pdf": PULL_TO_SEAT_PROMPT, "web": PULL_TO_SEAT_WEB_PROMPT},
+    "Gender": {"pdf": GENDER_PROMPT, "web": GENDER_WEB_PROMPT},
+    "Height [MM]": {"pdf": HEIGHT_MM_PROMPT, "web": HEIGHT_MM_WEB_PROMPT},
+    "Length [MM]": {"pdf": LENGTH_MM_PROMPT, "web": LENGTH_MM_WEB_PROMPT},
+    "Width [MM]": {"pdf": WIDTH_MM_PROMPT, "web": WIDTH_MM_WEB_PROMPT},
+    "Number of Cavities": {"pdf": NUMBER_OF_CAVITIES_PROMPT, "web": NUMBER_OF_CAVITIES_WEB_PROMPT},
+    "Number of Rows": {"pdf": NUMBER_OF_ROWS_PROMPT, "web": NUMBER_OF_ROWS_WEB_PROMPT},
+    "Mechanical Coding": {"pdf": MECHANICAL_CODING_PROMPT, "web": MECHANICAL_CODING_WEB_PROMPT},
+    "Colour": {"pdf": COLOUR_PROMPT, "web": COLOUR_WEB_PROMPT},
+    "Colour Coding": {"pdf": COLOUR_CODING_PROMPT, "web": COLOUR_CODING_WEB_PROMPT},
+    # Sealing & Environmental
+    "Max. Working Temperature [°C]": {"pdf": WORKING_TEMPERATURE_PROMPT, "web": MAX_WORKING_TEMPERATURE_WEB_PROMPT},
+    "Min. Working Temperature [°C]": {"pdf": WORKING_TEMPERATURE_PROMPT, "web": MIN_WORKING_TEMPERATURE_WEB_PROMPT},
+    "Housing Seal": {"pdf": HOUSING_SEAL_PROMPT, "web": HOUSING_SEAL_WEB_PROMPT},
+    "Wire Seal": {"pdf": WIRE_SEAL_PROMPT, "web": WIRE_SEAL_WEB_PROMPT},
+    "Sealing": {"pdf": SEALING_PROMPT, "web": SEALING_WEB_PROMPT},
+    "Sealing Class": {"pdf": SEALING_CLASS_PROMPT, "web": SEALING_CLASS_WEB_PROMPT},
+    # Terminals & Connections
+    "Contact Systems": {"pdf": CONTACT_SYSTEMS_PROMPT, "web": CONTACT_SYSTEMS_WEB_PROMPT},
+    "Terminal Position Assurance": {"pdf": TERMINAL_POSITION_ASSURANCE_PROMPT, "web": TERMINAL_POSITION_ASSURANCE_WEB_PROMPT},
+    "Connector Position Assurance": {"pdf": CONNECTOR_POSITION_ASSURANCE_PROMPT, "web": CONNECTOR_POSITION_ASSURANCE_WEB_PROMPT},
+    "Closed Cavities": {"pdf": CLOSED_CAVITIES_PROMPT, "web": CLOSED_CAVITIES_WEB_PROMPT},
+    # Assembly & Type
+    "Pre-Assembled": {"pdf": PRE_ASSEMBLED_PROMPT, "web": PRE_ASSEMBLED_WEB_PROMPT},
+    "Type of Connector": {"pdf": CONNECTOR_TYPE_PROMPT, "web": CONNECTOR_TYPE_WEB_PROMPT},
+    "Set/Kit": {"pdf": SET_KIT_PROMPT, "web": SET_KIT_WEB_PROMPT},
+    # Specialized Attributes
+    "HV Qualified": {"pdf": HV_QUALIFIED_PROMPT, "web": HV_QUALIFIED_WEB_PROMPT}
+}
+
 # --- Install Playwright browsers needed by crawl4ai --- 
 # This should run on startup in the Streamlit Cloud environment
 def install_playwright_browsers():
