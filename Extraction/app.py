@@ -1295,15 +1295,39 @@ def main():
                 logger.debug(f"Number of files to process: {len(uploaded_files) if uploaded_files else 0}")
                 logger.debug(f"Part number provided: {part_number if part_number else 'None'}")
                 
+                # Check if chains are initialized
+                if not st.session_state.pdf_chain:
+                    logger.info("PDF chain not initialized, creating now...")
+                    try:
+                        st.session_state.pdf_chain = create_pdf_extraction_chain(st.session_state.retriever, llm)
+                        logger.info("PDF chain created successfully")
+                    except Exception as e:
+                        logger.error(f"Failed to create PDF chain: {e}", exc_info=True)
+                        st.error("Failed to initialize PDF processing chain")
+                        return
+
+                if not st.session_state.web_chain:
+                    logger.info("Web chain not initialized, creating now...")
+                    try:
+                        st.session_state.web_chain = create_web_extraction_chain(llm)
+                        logger.info("Web chain created successfully")
+                    except Exception as e:
+                        logger.error(f"Failed to create web chain: {e}", exc_info=True)
+                        st.error("Failed to initialize web processing chain")
+                        return
+
                 # Call the async function if needed
-                if (st.session_state.pdf_chain and st.session_state.web_chain) and not st.session_state.extraction_performed:
+                if not st.session_state.extraction_performed:
                     logger.info("Starting async processing...")
                     try:
+                        logger.info("Initializing Mistral processing...")
                         asyncio.run(process_attributes_main())
                         logger.info("Async processing complete")
                     except Exception as e:
                         logger.error(f"Error during async processing: {str(e)}", exc_info=True)
                         st.error(f"Error during processing: {str(e)}")
+                else:
+                    logger.info("Extraction already performed, skipping processing")
             else:
                 logger.warning("No files or part number provided for processing")
                 st.warning("Please upload files or enter a part number to process.")
@@ -1317,6 +1341,7 @@ def main():
             st.dataframe(results_df)
             
     except Exception as e:
+        logger.error(f"Error in extraction app: {str(e)}", exc_info=True)
         st.error(f"Error in extraction app: {str(e)}")
         st.write("Debug: Full error details:", e.__class__.__name__)
         import traceback

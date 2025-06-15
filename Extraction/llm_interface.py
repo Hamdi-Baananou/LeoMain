@@ -18,6 +18,7 @@ from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, CacheMode
 from crawl4ai.extraction_strategy import JsonCssExtractionStrategy
 from bs4 import BeautifulSoup # Import BeautifulSoup
 import re # Import re for regular expressions
+import time # Import time for timing
 
 class LLMInterface:
     _instance = None
@@ -286,10 +287,12 @@ class LLMInterface:
     @staticmethod
     def create_pdf_extraction_chain(retriever, llm):
         """Creates a RAG chain that uses ONLY PDF context and detailed instructions."""
+        logger.info("Starting PDF extraction chain creation...")
         if retriever is None or llm is None:
             logger.error("Retriever or LLM is not initialized for PDF extraction chain.")
             return None
 
+        logger.info("Creating PDF extraction prompt template...")
         template = """
 You are an expert data extractor. Your goal is to extract a specific piece of information based on the Extraction Instructions provided below, using ONLY the Document Context from PDFs.
 
@@ -316,7 +319,9 @@ Example Output Format:
 Output:
 """
         prompt = PromptTemplate.from_template(template)
+        logger.info("PDF extraction prompt template created")
 
+        logger.info("Building PDF extraction chain...")
         pdf_chain = (
             RunnableParallel(
                 context=RunnablePassthrough() | (lambda x: retriever.invoke(f"Extract information about {x['attribute_key']} for part number {x.get('part_number', 'N/A')}")) | LLMInterface.format_docs,
@@ -333,16 +338,18 @@ Output:
             | llm
             | StrOutputParser()
         )
-        logger.info("PDF Extraction RAG chain created successfully.")
+        logger.info("PDF Extraction RAG chain created successfully with Mistral integration.")
         return pdf_chain
 
     @staticmethod
     def create_web_extraction_chain(llm):
         """Creates a simpler chain that uses ONLY cleaned website data."""
+        logger.info("Starting web extraction chain creation...")
         if llm is None:
             logger.error("LLM is not initialized for Web extraction chain.")
             return None
 
+        logger.info("Creating web extraction prompt template...")
         template = """
 You are an expert data extractor. Your goal is to answer a specific piece of information by applying the logic described in the 'Extraction Instructions' to the 'Cleaned Scraped Website Data' provided below. Use ONLY the provided website data as your context.
 
@@ -368,7 +375,9 @@ Example Output Format:
 Output:
 """
         prompt = PromptTemplate.from_template(template)
+        logger.info("Web extraction prompt template created")
 
+        logger.info("Building web extraction chain...")
         web_chain = (
             RunnableParallel(
                 cleaned_web_data=RunnablePassthrough(),
@@ -384,56 +393,69 @@ Output:
             | llm
             | StrOutputParser()
         )
-        logger.info("Web Data Extraction chain created successfully (accepts instructions).")
+        logger.info("Web Data Extraction chain created successfully with Mistral integration.")
         return web_chain
 
     @staticmethod
     async def _invoke_chain_and_process(chain, input_data, attribute_key):
         """Helper to invoke chain, handle errors, and clean response."""
-        response = await chain.ainvoke(input_data)
-        log_msg = f"Chain invoked successfully for '{attribute_key}'."
-        if response:
-            log_msg += f" Response length: {len(response)}"
-        logger.info(log_msg)
-
-        if response is None:
-            logger.error(f"Chain invocation returned None for '{attribute_key}'")
-            return json.dumps({"error": f"Chain invocation returned None for {attribute_key}"})
-
-        cleaned_response = response
+        logger.info(f"Invoking chain for attribute: {attribute_key}")
+        logger.debug(f"Input data for {attribute_key}: {input_data}")
         
-        # 1. Remove <think> tags
-        think_start_tag = "<think>"
-        think_end_tag = "</think>"
-        start_index_think = cleaned_response.find(think_start_tag)
-        end_index_think = cleaned_response.find(think_end_tag)
-        if start_index_think != -1 and end_index_think != -1 and end_index_think > start_index_think:
-            cleaned_response = cleaned_response[end_index_think + len(think_end_tag):].strip()
-
-        # 2. Remove ```json ... ``` markdown
-        if cleaned_response.strip().startswith("```json"):
-            cleaned_response = cleaned_response.strip()[7:]
-            if cleaned_response.endswith("```"):
-                cleaned_response = cleaned_response[:-3]
-            cleaned_response = cleaned_response.strip()
-
-        # 3. Find the first '{' and the last '}' to isolate the JSON object
         try:
-            first_brace = cleaned_response.find('{')
-            last_brace = cleaned_response.rfind('}')
-            if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
-                potential_json = cleaned_response[first_brace : last_brace + 1]
-                json.loads(potential_json)
-                cleaned_response = potential_json
-                logger.debug(f"Isolated potential JSON for '{attribute_key}': {cleaned_response}")
-            else:
-                logger.warning(f"Could not find clear JSON braces {{...}} in response for '{attribute_key}'. Using original cleaned response.")
-        except json.JSONDecodeError:
-            logger.warning(f"Failed to parse isolated JSON for '{attribute_key}'. Using original cleaned response. Raw: {cleaned_response}")
-        except Exception as e:
-            logger.error(f"Unexpected error during JSON isolation for '{attribute_key}': {e}")
+            start_time = time.time()
+            response = await chain.ainvoke(input_data)
+            processing_time = time.time() - start_time
+            
+            log_msg = f"Chain invoked successfully for '{attribute_key}' in {processing_time:.2f} seconds."
+            if response:
+                log_msg += f" Response length: {len(response)}"
+            logger.info(log_msg)
+            logger.debug(f"Raw response for {attribute_key}: {response}")
 
-        return cleaned_response
+            if response is None:
+                logger.error(f"Chain invocation returned None for '{attribute_key}'")
+                return json.dumps({"error": f"Chain invocation returned None for {attribute_key}"})
+
+            cleaned_response = response
+            
+            # 1. Remove <think> tags
+            think_start_tag = "<think>"
+            think_end_tag = "</think>"
+            start_index_think = cleaned_response.find(think_start_tag)
+            end_index_think = cleaned_response.find(think_end_tag)
+            if start_index_think != -1 and end_index_think != -1 and end_index_think > start_index_think:
+                cleaned_response = cleaned_response[end_index_think + len(think_end_tag):].strip()
+                logger.debug(f"Removed think tags for {attribute_key}")
+
+            # 2. Remove ```json ... ``` markdown
+            if cleaned_response.strip().startswith("```json"):
+                cleaned_response = cleaned_response.strip()[7:]
+                if cleaned_response.endswith("```"):
+                    cleaned_response = cleaned_response[:-3]
+                cleaned_response = cleaned_response.strip()
+                logger.debug(f"Removed markdown for {attribute_key}")
+
+            # 3. Find the first '{' and the last '}' to isolate the JSON object
+            try:
+                first_brace = cleaned_response.find('{')
+                last_brace = cleaned_response.rfind('}')
+                if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
+                    potential_json = cleaned_response[first_brace : last_brace + 1]
+                    json.loads(potential_json)  # Validate JSON
+                    cleaned_response = potential_json
+                    logger.debug(f"Successfully isolated JSON for '{attribute_key}': {cleaned_response}")
+                else:
+                    logger.warning(f"Could not find clear JSON braces {{...}} in response for '{attribute_key}'. Using original cleaned response.")
+            except json.JSONDecodeError:
+                logger.warning(f"Failed to parse isolated JSON for '{attribute_key}'. Using original cleaned response. Raw: {cleaned_response}")
+            except Exception as e:
+                logger.error(f"Unexpected error during JSON isolation for '{attribute_key}': {e}")
+
+            return cleaned_response
+        except Exception as e:
+            logger.error(f"Error in chain invocation for {attribute_key}: {e}", exc_info=True)
+            return json.dumps({"error": f"Chain invocation error: {str(e)}"})
 
 # Create singleton instance
 llm_interface = LLMInterface()
