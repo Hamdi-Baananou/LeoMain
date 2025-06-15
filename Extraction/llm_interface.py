@@ -34,8 +34,13 @@ def initialize_llm():
             model_name=config.LLM_MODEL_NAME,
             max_tokens=config.LLM_MAX_OUTPUT_TOKENS
         )
+        # Test the LLM with a simple prompt to ensure it's working
+        test_response = llm.invoke("Test connection")
+        if test_response is None:
+            raise ConnectionError("LLM test response was None")
         return llm
     except Exception as e:
+        logger.error(f"Failed to initialize Groq LLM: {e}", exc_info=True)
         raise ConnectionError(f"Could not initialize Groq LLM: {e}")
 
 def format_docs(docs: List[Document]) -> str:
@@ -275,11 +280,15 @@ async def scrape_website_table_html(part_number: str) -> Optional[str]:
 
 def create_pdf_extraction_chain(retriever, llm):
     """Creates a RAG chain that uses ONLY PDF context and detailed instructions."""
-    if retriever is None or llm is None:
-        logger.error("Retriever or LLM is not initialized for PDF extraction chain.")
+    if retriever is None:
+        logger.error("Retriever is not initialized for PDF extraction chain.")
+        return None
+    if llm is None:
+        logger.error("LLM is not initialized for PDF extraction chain.")
         return None
 
-    template = """
+    try:
+        template = """
 You are an expert data extractor. Your goal is to extract a specific piece of information based on the Extraction Instructions provided below, using ONLY the Document Context from PDFs.
 
 Part Number Information (if provided by user):
@@ -304,26 +313,40 @@ Example Output Format:
 
 Output:
 """
-    prompt = PromptTemplate.from_template(template)
+        prompt = PromptTemplate.from_template(template)
 
-    pdf_chain = (
-        RunnableParallel(
-            context=RunnablePassthrough() | (lambda x: retriever.invoke(f"Extract information about {x['attribute_key']} for part number {x.get('part_number', 'N/A')}")) | format_docs,
-            extraction_instructions=RunnablePassthrough(),
-            attribute_key=RunnablePassthrough(),
-            part_number=RunnablePassthrough()
+        pdf_chain = (
+            RunnableParallel(
+                context=RunnablePassthrough() | (lambda x: retriever.invoke(f"Extract information about {x['attribute_key']} for part number {x.get('part_number', 'N/A')}")) | format_docs,
+                extraction_instructions=RunnablePassthrough(),
+                attribute_key=RunnablePassthrough(),
+                part_number=RunnablePassthrough()
+            )
+            .assign(
+                extraction_instructions=lambda x: x['extraction_instructions']['extraction_instructions'],
+                attribute_key=lambda x: x['attribute_key']['attribute_key'],
+                part_number=lambda x: x['part_number'].get('part_number', "Not Provided")
+            )
+            | prompt
+            | llm
+            | StrOutputParser()
         )
-        .assign(
-            extraction_instructions=lambda x: x['extraction_instructions']['extraction_instructions'],
-            attribute_key=lambda x: x['attribute_key']['attribute_key'],
-            part_number=lambda x: x['part_number'].get('part_number', "Not Provided")
-        )
-        | prompt
-        | llm
-        | StrOutputParser()
-    )
-    logger.info("PDF Extraction RAG chain created successfully.")
-    return pdf_chain
+        
+        # Test the chain with a simple input
+        test_input = {
+            'attribute_key': 'test',
+            'extraction_instructions': 'Test extraction',
+            'part_number': 'test'
+        }
+        test_result = pdf_chain.invoke(test_input)
+        if test_result is None:
+            raise ValueError("PDF chain test returned None")
+            
+        logger.info("PDF Extraction RAG chain created and tested successfully.")
+        return pdf_chain
+    except Exception as e:
+        logger.error(f"Failed to create PDF extraction chain: {e}", exc_info=True)
+        return None
 
 def create_web_extraction_chain(llm):
     """Creates a simpler chain that uses ONLY cleaned website data."""
@@ -331,7 +354,8 @@ def create_web_extraction_chain(llm):
         logger.error("LLM is not initialized for Web extraction chain.")
         return None
 
-    template = """
+    try:
+        template = """
 You are an expert data extractor. Your goal is to answer a specific piece of information by applying the logic described in the 'Extraction Instructions' to the 'Cleaned Scraped Website Data' provided below. Use ONLY the provided website data as your context.
 
 --- Cleaned Scraped Website Data ---
@@ -355,25 +379,39 @@ Example Output Format:
 
 Output:
 """
-    prompt = PromptTemplate.from_template(template)
+        prompt = PromptTemplate.from_template(template)
 
-    web_chain = (
-        RunnableParallel(
-            cleaned_web_data=RunnablePassthrough(),
-            extraction_instructions=RunnablePassthrough(),
-            attribute_key=RunnablePassthrough()
+        web_chain = (
+            RunnableParallel(
+                cleaned_web_data=RunnablePassthrough(),
+                extraction_instructions=RunnablePassthrough(),
+                attribute_key=RunnablePassthrough()
+            )
+            .assign(
+                cleaned_web_data=lambda x: x['cleaned_web_data']['cleaned_web_data'],
+                extraction_instructions=lambda x: x['extraction_instructions']['extraction_instructions'],
+                attribute_key=lambda x: x['attribute_key']['attribute_key']
+            )
+            | prompt
+            | llm
+            | StrOutputParser()
         )
-        .assign(
-            cleaned_web_data=lambda x: x['cleaned_web_data']['cleaned_web_data'],
-            extraction_instructions=lambda x: x['extraction_instructions']['extraction_instructions'],
-            attribute_key=lambda x: x['attribute_key']['attribute_key']
-        )
-        | prompt
-        | llm
-        | StrOutputParser()
-    )
-    logger.info("Web Data Extraction chain created successfully (accepts instructions).")
-    return web_chain
+        
+        # Test the chain with a simple input
+        test_input = {
+            'cleaned_web_data': 'Test data',
+            'extraction_instructions': 'Test extraction',
+            'attribute_key': 'test'
+        }
+        test_result = web_chain.invoke(test_input)
+        if test_result is None:
+            raise ValueError("Web chain test returned None")
+            
+        logger.info("Web Data Extraction chain created and tested successfully.")
+        return web_chain
+    except Exception as e:
+        logger.error(f"Failed to create web extraction chain: {e}", exc_info=True)
+        return None
 
 async def _invoke_chain_and_process(chain, input_data, attribute_key):
     """Helper to invoke chain, handle errors, and clean response."""

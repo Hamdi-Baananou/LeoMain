@@ -1374,10 +1374,9 @@ def main():
                 try:
                     logger.info("Initializing LLM...")
                     st.session_state.llm = initialize_llm_cached()
-                    if st.session_state.llm:
-                        logger.success("LLM initialized successfully")
-                    else:
+                    if st.session_state.llm is None:
                         raise Exception("LLM initialization returned None")
+                    logger.success("LLM initialized successfully")
                 except Exception as e:
                     logger.error(f"Failed to initialize LLM: {e}", exc_info=True)
                     st.error(f"Fatal Error: Could not initialize LLM. Error: {e}")
@@ -1388,10 +1387,9 @@ def main():
                 try:
                     logger.info("Initializing embeddings...")
                     st.session_state.embedding_function = initialize_embeddings()
-                    if st.session_state.embedding_function:
-                        logger.success("Embeddings initialized successfully")
-                    else:
+                    if st.session_state.embedding_function is None:
                         raise Exception("Embeddings initialization returned None")
+                    logger.success("Embeddings initialized successfully")
                 except Exception as e:
                     logger.error(f"Failed to initialize embeddings: {e}", exc_info=True)
                     st.error(f"Fatal Error: Could not initialize embeddings. Error: {e}")
@@ -1420,6 +1418,12 @@ def main():
                 logger.debug(f"Number of files to process: {len(uploaded_files) if uploaded_files else 0}")
                 logger.debug(f"Part number provided: {part_number if part_number else 'None'}")
                 
+                # Verify LLM is initialized
+                if not st.session_state.get('llm'):
+                    logger.error("LLM not initialized")
+                    st.error("LLM not initialized. Please refresh the page and try again.")
+                    return
+
                 # Initialize retriever if not already in session state
                 if 'retriever' not in st.session_state:
                     try:
@@ -1439,6 +1443,8 @@ def main():
                     logger.info("PDF chain not initialized, creating now...")
                     try:
                         st.session_state.pdf_chain = create_pdf_extraction_chain(st.session_state.retriever, st.session_state.llm)
+                        if st.session_state.pdf_chain is None:
+                            raise Exception("PDF chain creation returned None")
                         logger.info("PDF chain created successfully")
                     except Exception as e:
                         logger.error(f"Failed to create PDF chain: {e}", exc_info=True)
@@ -1449,11 +1455,19 @@ def main():
                     logger.info("Web chain not initialized, creating now...")
                     try:
                         st.session_state.web_chain = create_web_extraction_chain(st.session_state.llm)
+                        if st.session_state.web_chain is None:
+                            raise Exception("Web chain creation returned None")
                         logger.info("Web chain created successfully")
                     except Exception as e:
                         logger.error(f"Failed to create web chain: {e}", exc_info=True)
                         st.error("Failed to initialize web processing chain")
                         return
+
+                # Verify chains are properly initialized
+                if not st.session_state.pdf_chain or not st.session_state.web_chain:
+                    logger.error("One or more chains not properly initialized")
+                    st.error("Processing chains not properly initialized. Please refresh the page and try again.")
+                    return
 
                 # Call the async function if needed
                 if not st.session_state.extraction_performed:
