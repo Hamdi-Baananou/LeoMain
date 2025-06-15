@@ -8,9 +8,14 @@ import streamlit as st
 load_dotenv()
 
 # --- API Keys ---
-# Try to get API keys from Streamlit secrets first, then fall back to environment variables
-GROQ_API_KEY = st.secrets.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY")
-MISTRAL_API_KEY = st.secrets.get("MISTRAL_API_KEY") or os.getenv("MISTRAL_API_KEY")
+# Access API keys from Streamlit secrets
+try:
+    GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
+    MISTRAL_API_KEY = st.secrets["MISTRAL_API_KEY"]
+except KeyError as e:
+    print(f"Warning: {str(e)} not found in Streamlit secrets.")
+    GROQ_API_KEY = None
+    MISTRAL_API_KEY = None
 
 # --- Model Configuration ---
 # Recommend using Langchain's Groq integration if possible
