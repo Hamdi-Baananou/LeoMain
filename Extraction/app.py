@@ -1,4 +1,5 @@
 # --- Force python to use pysqlite3 based on chromadb docs ---
+# This override MUST happen before any other imports that might import sqlite3
 __import__('pysqlite3')
 import sys
 sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
@@ -19,15 +20,36 @@ from langchain.docstore.document import Document
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 
+# --- Install Playwright browsers needed by crawl4ai --- 
+def install_playwright_browsers():
+    logger.info("Checking and installing Playwright browsers if needed...")
+    try:
+        process = subprocess.run([sys.executable, "-m", "playwright", "install"], 
+                               capture_output=True, text=True, check=False)
+        if process.returncode == 0:
+            logger.success("Playwright browsers installed successfully (or already exist).")
+        else:
+            logger.error(f"Playwright browser install command failed with code {process.returncode}.")
+            logger.error(f"stdout: {process.stdout}")
+            logger.error(f"stderr: {process.stderr}")
+    except FileNotFoundError:
+        logger.error("Could not find 'playwright' command. Is playwright installed correctly?")
+        st.error("Playwright not found. Please ensure 'playwright' is in requirements.txt")
+    except Exception as e:
+        logger.error(f"An error occurred during Playwright browser installation: {e}", exc_info=True)
+        st.warning(f"An error occurred installing Playwright browsers: {e}. Web scraping may fail.")
+
+install_playwright_browsers()
+
 # Import project modules
 import config
-from Extraction.pdf_processor import process_uploaded_pdfs, process_pdfs_in_background
-from Extraction.vector_store import (
+from pdf_processor import process_uploaded_pdfs, process_pdfs_in_background
+from vector_store import (
     get_embedding_function,
     setup_vector_store,
     load_existing_vector_store
 )
-from Extraction.llm_interface import (
+from llm_interface import (
     initialize_llm,
     create_pdf_extraction_chain,
     create_web_extraction_chain,
@@ -102,25 +124,6 @@ from Extraction.extraction_prompts_web import (
     HV_QUALIFIED_WEB_PROMPT
 )
 
-def install_playwright_browsers():
-    """Install Playwright browsers if needed"""
-    logger.info("Checking and installing Playwright browsers if needed...")
-    try:
-        process = subprocess.run([sys.executable, "-m", "playwright", "install"], 
-                               capture_output=True, text=True, check=False)
-        if process.returncode == 0:
-            logger.success("Playwright browsers installed successfully (or already exist).")
-        else:
-            logger.error(f"Playwright browser install command failed with code {process.returncode}.")
-            logger.error(f"stdout: {process.stdout}")
-            logger.error(f"stderr: {process.stderr}")
-    except FileNotFoundError:
-        logger.error("Could not find 'playwright' command. Is playwright installed correctly?")
-        st.error("Playwright not found. Please ensure 'playwright' is in requirements.txt")
-    except Exception as e:
-        logger.error(f"An error occurred during Playwright browser installation: {e}", exc_info=True)
-        st.warning(f"An error occurred installing Playwright browsers: {e}. Web scraping may fail.")
-
 def initialize_session_state():
     """Initialize session state variables"""
     state_vars = {
@@ -172,7 +175,8 @@ def initialize_resources():
         vector_store = load_existing_vector_store(embedding_function)
         if not vector_store:
             logger.warning("No existing vector store found, setting up new one...")
-            vector_store = setup_vector_store(embedding_function)
+            # Create an empty vector store
+            vector_store = setup_vector_store([], embedding_function)
             if not vector_store:
                 logger.error("Failed to set up vector store")
                 return False
@@ -338,9 +342,6 @@ def main():
         st.json(summary_dict)
     elif st.session_state.get('extraction_performed'):
         st.warning("Extraction ran but yielded no valid results. Please check the logs or raw outputs.")
-
-# Install Playwright browsers
-install_playwright_browsers()
 
 # Only run the main function if this file is executed directly
 if __name__ == "__main__":

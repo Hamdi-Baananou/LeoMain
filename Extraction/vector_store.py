@@ -3,9 +3,6 @@ from typing import List, Optional
 from loguru import logger
 import os
 import time
-import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
@@ -18,56 +15,16 @@ import config # Import configuration
 # --- Embedding Function ---
 @logger.catch(reraise=True) # Automatically log exceptions
 def get_embedding_function():
-    """Initializes and returns the HuggingFace embedding function with improved error handling."""
+    """Initializes and returns the HuggingFace embedding function."""
     model_kwargs = {'device': config.EMBEDDING_DEVICE}
     encode_kwargs = {'normalize_embeddings': config.NORMALIZE_EMBEDDINGS}
 
-    # Configure retry strategy for requests
-    retry_strategy = Retry(
-        total=3,  # number of retries
-        backoff_factor=1,  # wait 1, 2, 4 seconds between retries
-        status_forcelist=[429, 500, 502, 503, 504],  # HTTP status codes to retry on
+    embeddings = HuggingFaceEmbeddings(
+        model_name=config.EMBEDDING_MODEL_NAME,
+        model_kwargs=model_kwargs,
+        encode_kwargs=encode_kwargs,
     )
-    adapter = HTTPAdapter(max_retries=retry_strategy)
-    session = requests.Session()
-    session.mount("https://", adapter)
-    session.mount("http://", adapter)
-
-    # Set longer timeout for model download
-    os.environ['HF_HUB_DOWNLOAD_TIMEOUT'] = '300'  # 5 minutes timeout
-    os.environ['HF_HUB_ENABLE_HF_TRANSFER'] = '1'  # Enable HF transfer for faster downloads
-
-    try:
-        logger.info(f"Attempting to initialize embedding model: {config.EMBEDDING_MODEL_NAME}")
-        embeddings = HuggingFaceEmbeddings(
-            model_name=config.EMBEDDING_MODEL_NAME,
-            model_kwargs=model_kwargs,
-            encode_kwargs=encode_kwargs,
-            cache_folder=os.path.join(os.getcwd(), "models"),  # Cache models locally
-        )
-        logger.success("Successfully initialized embedding model")
-        return embeddings
-    except Exception as e:
-        logger.error(f"Failed to initialize embedding model: {e}")
-        
-        # Try to use a local fallback model if available
-        local_model_path = os.path.join(os.getcwd(), "models", "all-MiniLM-L6-v2")
-        if os.path.exists(local_model_path):
-            logger.info("Attempting to use local fallback model")
-            try:
-                embeddings = HuggingFaceEmbeddings(
-                    model_name=local_model_path,
-                    model_kwargs=model_kwargs,
-                    encode_kwargs=encode_kwargs,
-                    local_files_only=True,  # Force using local files
-                )
-                logger.success("Successfully initialized local fallback model")
-                return embeddings
-            except Exception as local_e:
-                logger.error(f"Failed to initialize local fallback model: {local_e}")
-        
-        # If all attempts fail, raise the original error
-        raise
+    return embeddings
 
 # --- ChromaDB Setup and Retrieval ---
 _chroma_client = None # Module-level client cache
@@ -173,26 +130,12 @@ def load_existing_vector_store(embedding_function) -> Optional[VectorStoreRetrie
             embedding_function=embedding_function,
             collection_name=collection_name,
         )
-        # Simple check to see if it loaded something (e.g., count items)
-        # Note: .count() might not exist directly, use a different check if needed
-        # A simple successful initialization might be enough indication
-        # try:
-        #     count = vector_store._collection.count() # Example internal access, might change
-        #     logger.info(f"Successfully loaded collection '{collection_name}' with {count} items.")
-        # except Exception:
-        #      logger.warning(f"Loaded collection '{collection_name}', but could not verify item count.")
 
         logger.success(f"Successfully loaded vector store '{collection_name}'.")
         return vector_store.as_retriever(search_kwargs={"k": config.RETRIEVER_K})
 
     except Exception as e:
-        # This exception block might catch cases where the collection *within* the directory doesn't exist
-        # or other Chroma loading errors.
-        logger.warning(f"Failed to load existing vector store '{collection_name}' from '{persist_directory}': {e}", exc_info=False) # Log less verbosely maybe
-        # Log specific known issues like collection not found separately if possible
-        if "does not exist" in str(e).lower(): # Basic check
+        logger.warning(f"Failed to load existing vector store '{collection_name}' from '{persist_directory}': {e}", exc_info=False)
+        if "does not exist" in str(e).lower():
              logger.warning(f"Persistent collection '{collection_name}' not found in directory '{persist_directory}'. Cannot load.")
-
         return None
-
-# Add this import at the top of vector_store.py
