@@ -198,60 +198,57 @@ embedding_function = None
 llm = None
 
 try:
+    st.write("Debug: Initializing embedding function...")
     logger.info("Attempting to initialize embedding function...")
     embedding_function = initialize_embeddings()
     if embedding_function:
          logger.success("Embedding function initialized successfully.")
+         st.write("Debug: Embedding function initialized successfully")
 except Exception as e:
     logger.error(f"Failed to initialize embeddings: {e}", exc_info=True)
     st.error(f"Fatal Error: Could not initialize embedding model. Error: {e}")
+    st.write("Debug: Embedding initialization failed:", str(e))
     st.stop()
 
 try:
+    st.write("Debug: Initializing LLM...")
     logger.info("Attempting to initialize LLM...")
     llm = initialize_llm_cached()
     if llm:
         logger.success("LLM initialized successfully.")
+        st.write("Debug: LLM initialized successfully")
 except Exception as e:
      logger.error(f"Failed to initialize LLM: {e}", exc_info=True)
      st.error(f"Fatal Error: Could not initialize LLM. Error: {e}")
+     st.write("Debug: LLM initialization failed:", str(e))
      st.stop()
 
 # --- Check if initializations failed ---
 if embedding_function is None or llm is None:
      if not st.exception: # If st.stop() wasn't called already
         st.error("Core components (Embeddings or LLM) failed to initialize. Cannot continue.")
+        st.write("Debug: Core components failed to initialize")
      st.stop()
-
-
-# --- Load existing vector store or process uploads ---
-# Reset evaluation state when processing new files
-def reset_evaluation_state():
-    st.session_state.evaluation_results = []
-    st.session_state.evaluation_metrics = None
-    st.session_state.extraction_performed = False # Reset the flag here too
-    st.session_state.scraped_table_html_cache = None # Clear scraped HTML cache
-    st.session_state.current_part_number_scraped = None # Clear scraped part number tracker
-    # Clear data editor state if it exists
-    if 'gt_editor' in st.session_state:
-        del st.session_state['gt_editor']
 
 # Try loading existing vector store and create BOTH extraction chains
 if st.session_state.retriever is None and config.CHROMA_SETTINGS.is_persistent and embedding_function:
+    st.write("Debug: Loading existing vector store...")
     logger.info("Attempting to load existing vector store...")
     st.session_state.retriever = load_existing_vector_store(embedding_function)
     if st.session_state.retriever:
         logger.success("Successfully loaded retriever from persistent storage.")
+        st.write("Debug: Vector store loaded successfully")
         st.session_state.processed_files = ["Existing data loaded from disk"]
         # --- Create BOTH Extraction Chains --- 
+        st.write("Debug: Creating extraction chains...")
         logger.info("Creating extraction chains from loaded retriever...")
         st.session_state.pdf_chain = create_pdf_extraction_chain(st.session_state.retriever, llm)
         st.session_state.web_chain = create_web_extraction_chain(llm)
         if not st.session_state.pdf_chain or not st.session_state.web_chain:
-            st.warning("Failed to create one or both extraction chains from loaded retriever.")
-        # ------------------------------------
-        # Don't reset evaluation if loading existing data, but ensure extraction hasn't run yet
-        st.session_state.extraction_performed = False # Ensure flag is false on load
+            st.write("Debug: Chain creation failed")
+            st.error("Failed to create extraction chains")
+        else:
+            st.write("Debug: Chains created successfully")
     else:
         logger.warning("No existing persistent vector store found or failed to load.")
 
@@ -1223,35 +1220,49 @@ async def process_attributes_main():
 
 def main():
     """Main function for the extraction app."""
-    # Install Playwright browsers on startup
-    install_playwright_browsers()
+    try:
+        st.write("Debug: Starting extraction app initialization...")
+        
+        # Install Playwright browsers on startup
+        st.write("Debug: Installing Playwright browsers...")
+        install_playwright_browsers()
+        st.write("Debug: Playwright installation complete")
 
-    # Set up the main UI
-    st.title("Document Extraction")
-    st.markdown("Upload your documents or enter a part number to extract information.")
+        # Set up the main UI
+        st.title("Document Extraction")
+        st.markdown("Upload your documents or enter a part number to extract information.")
 
-    # File upload section
-    uploaded_files = st.file_uploader("Upload PDF files", type=['pdf'], accept_multiple_files=True)
-    
-    # Part number input
-    part_number = st.text_input("Enter Part Number (optional)")
-    if part_number:
-        st.session_state.part_number_input = part_number
+        # File upload section
+        uploaded_files = st.file_uploader("Upload PDF files", type=['pdf'], accept_multiple_files=True)
+        
+        # Part number input
+        part_number = st.text_input("Enter Part Number (optional)")
+        if part_number:
+            st.session_state.part_number_input = part_number
 
-    # Process button
-    if st.button("Process Documents"):
-        if uploaded_files or part_number:
-            # Call the async function if needed
-            if (st.session_state.pdf_chain and st.session_state.web_chain) and not st.session_state.extraction_performed:
-                asyncio.run(process_attributes_main())
-        else:
-            st.warning("Please upload files or enter a part number to process.")
+        # Process button
+        if st.button("Process Documents"):
+            if uploaded_files or part_number:
+                st.write("Debug: Processing documents...")
+                # Call the async function if needed
+                if (st.session_state.pdf_chain and st.session_state.web_chain) and not st.session_state.extraction_performed:
+                    st.write("Debug: Starting async processing...")
+                    asyncio.run(process_attributes_main())
+                    st.write("Debug: Async processing complete")
+            else:
+                st.warning("Please upload files or enter a part number to process.")
 
-    # Display results if available
-    if st.session_state.evaluation_results:
-        st.subheader("Extraction Results")
-        results_df = pd.DataFrame(st.session_state.evaluation_results)
-        st.dataframe(results_df)
+        # Display results if available
+        if st.session_state.evaluation_results:
+            st.subheader("Extraction Results")
+            results_df = pd.DataFrame(st.session_state.evaluation_results)
+            st.dataframe(results_df)
+            
+    except Exception as e:
+        st.error(f"Error in extraction app: {str(e)}")
+        st.write("Debug: Full error details:", e.__class__.__name__)
+        import traceback
+        st.write("Debug: Traceback:", traceback.format_exc())
 
 if __name__ == "__main__":
     main()
