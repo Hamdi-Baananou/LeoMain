@@ -177,6 +177,14 @@ if 'pdf_processing_complete' not in st.session_state:
 if 'pdf_processing_results' not in st.session_state:
     st.session_state.pdf_processing_results = None
 
+def reset_evaluation_state():
+    """Reset all evaluation-related session state variables."""
+    st.session_state.evaluation_results = []
+    st.session_state.evaluation_metrics = None
+    st.session_state.extraction_performed = False
+    st.session_state.scraped_table_html_cache = None
+    st.session_state.current_part_number_scraped = None
+
 # --- Global Variables / Initialization ---
 # Initialize embeddings (this is relatively heavy, do it once)
 @st.cache_resource
