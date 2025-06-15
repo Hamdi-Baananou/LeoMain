@@ -20,6 +20,13 @@ from langchain.docstore.document import Document
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 
+# --- Streamlit Page Configuration ---
+st.set_page_config(
+    page_title="PDF Auto-Extraction with Groq", # Updated title
+    page_icon="📄",
+    layout="wide"
+)
+
 # Import project modules
 import config
 from pdf_processor import process_uploaded_pdfs, process_pdfs_in_background
@@ -135,13 +142,6 @@ def install_playwright_browsers():
     except Exception as e:
         logger.error(f"An error occurred during Playwright browser installation: {e}", exc_info=True)
         st.warning(f"An error occurred installing Playwright browsers: {e}. Web scraping may fail.")
-
-# --- Streamlit Page Configuration ---
-st.set_page_config(
-    page_title="PDF Auto-Extraction with Groq", # Updated title
-    page_icon="📄",
-    layout="wide"
-)
 
 # --- Logging Configuration ---
 # Configure Loguru logger (can be more flexible than standard logging)
