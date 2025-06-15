@@ -208,9 +208,24 @@ def main():
     Upload your PDF files and enter a part number to get started.
     """)
     
-    # Check for API key
-    if not st.session_state.get('GROQ_API_KEY'):
-        st.error("Please set your GROQ API key in the .env file")
+    # Check for API key in Streamlit secrets first, then in .env
+    api_key = st.secrets.get("GROQ_API_KEY")
+    if not api_key:
+        api_key = os.getenv("GROQ_API_KEY")
+    
+    if not api_key:
+        st.error("""
+        ⚠️ GROQ API key not found. Please set it in Streamlit secrets or in the .env file.
+        
+        To set it in Streamlit secrets:
+        1. Go to your Streamlit Cloud dashboard
+        2. Select your app
+        3. Go to Settings > Secrets
+        4. Add your GROQ API key:
+        ```
+        GROQ_API_KEY = "your-api-key-here"
+        ```
+        """)
         return
     
     # Initialize resources
