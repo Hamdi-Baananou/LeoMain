@@ -155,27 +155,45 @@ def initialize_llm_cached():
     return llm_instance
 
 def initialize_resources():
-    """Initialize all required resources"""
+    """Initialize or load required resources."""
     try:
-        logger.info("Attempting to initialize embedding function...")
-        embedding_function = initialize_embeddings()
-        if embedding_function:
-            logger.success("Embedding function initialized successfully.")
+        # Initialize embedding function
+        embedding_function = get_embedding_function()
+        if not embedding_function:
+            logger.error("Failed to initialize embedding function")
+            return False
+            
+        # Initialize LLM
+        if not initialize_llm():
+            logger.error("Failed to initialize LLM")
+            return False
+            
+        # Try to load existing vector store
+        vector_store = load_existing_vector_store(embedding_function)
+        if not vector_store:
+            logger.warning("No existing vector store found, setting up new one...")
+            vector_store = setup_vector_store(embedding_function)
+            if not vector_store:
+                logger.error("Failed to set up vector store")
+                return False
+                
+        # Create extraction chains
+        pdf_chain = create_pdf_extraction_chain(vector_store)
+        web_chain = create_web_extraction_chain()
         
-        logger.info("Attempting to initialize LLM...")
-        llm = initialize_llm_cached()
-        if llm:
-            logger.success("LLM initialized successfully.")
-        
-        logger.info("Attempting to load existing vector store...")
-        vector_store = load_existing_vector_store()
-        if vector_store:
-            st.session_state.retriever = vector_store.as_retriever()
-            logger.success("Vector store loaded successfully.")
+        if not pdf_chain or not web_chain:
+            logger.error("Failed to create extraction chains")
+            return False
+            
+        # Store resources in session state
+        st.session_state.vector_store = vector_store
+        st.session_state.pdf_chain = pdf_chain
+        st.session_state.web_chain = web_chain
         
         return True
+        
     except Exception as e:
-        logger.error(f"Error initializing resources: {e}")
+        logger.error(f"An error has been caught in function 'initialize_resources': {str(e)}")
         return False
 
 def convert_df_to_csv(df):
