@@ -20,13 +20,6 @@ from langchain.docstore.document import Document
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 
-# --- Streamlit Page Configuration ---
-st.set_page_config(
-    page_title="PDF Auto-Extraction with Groq", # Updated title
-    page_icon="📄",
-    layout="wide"
-)
-
 # Import project modules
 import config
 from pdf_processor import process_uploaded_pdfs, process_pdfs_in_background
