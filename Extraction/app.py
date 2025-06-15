@@ -1498,5 +1498,9 @@ def main():
         import traceback
         st.write("Debug: Traceback:", traceback.format_exc())
 
+# Make sure the main function is properly exported
+__all__ = ['main']
+
+# Only run main() if this file is being run directly
 if __name__ == "__main__":
     main()
